@@ -1,0 +1,19 @@
+@import "tailwindcss";
+
+:root {
+  --font-sans: -apple-system, "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --color-plan: #2563EB;
+  --color-save: #059669;
+  --color-new-req: #5B21B6;
+}
+
+body {
+  margin: 0;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+#root {
+  min-height: 100vh;
+}
