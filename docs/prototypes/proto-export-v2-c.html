@@ -1,0 +1,388 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  /* 不使用 @import 外部字体 — 防止加载失败导致空白 */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    width: 390px;
+    padding: 16px;
+    background: linear-gradient(165deg, #e8ecf4 0%, #f2eff6 35%, #eef0f8 65%, #f5f0ee 100%);
+    min-height: 100px;
+  }
+
+  .card {
+    border-radius: 28px;
+    overflow: hidden;
+    background: rgba(255,255,255,0.55);
+    backdrop-filter: blur(60px) saturate(160%);
+    -webkit-backdrop-filter: blur(60px) saturate(160%);
+    border: 1px solid rgba(255,255,255,0.65);
+    box-shadow:
+      0 8px 32px rgba(0,0,0,0.04),
+      0 1px 2px rgba(0,0,0,0.03),
+      inset 0 1px 0 rgba(255,255,255,0.5);
+  }
+
+  .header {
+    padding: 26px 22px 14px;
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 3px;
+  }
+  .project-name {
+    font-size: 19px;
+    font-weight: 800;
+    color: #2c2c2e;
+    letter-spacing: -0.4px;
+  }
+  .logo-badge {
+    font-size: 9px;
+    font-weight: 700;
+    color: #a0a0a8;
+    letter-spacing: 0.8px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .logo-icon {
+    width: 15px;
+    height: 15px;
+    background: linear-gradient(135deg, #8da4c8, #a78bbe);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 8px;
+    font-weight: 900;
+  }
+  .header-date {
+    font-size: 12px;
+    color: #a0a0a8;
+    font-weight: 500;
+  }
+
+  /* 概览 */
+  .overview {
+    padding: 14px 22px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 1px solid rgba(0,0,0,0.03);
+    border-bottom: 1px solid rgba(0,0,0,0.03);
+  }
+  .ov-item { text-align: center; }
+  .ov-num {
+    font-size: 19px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+  .ov-num.blue { color: #7b9ec5; }
+  .ov-num.red { color: #c47d76; }
+  .ov-label {
+    font-size: 10px;
+    color: #a0a0a8;
+    font-weight: 600;
+    margin-top: 1px;
+  }
+  .ov-arrow {
+    font-size: 14px;
+    color: #ccc;
+    font-weight: 300;
+  }
+
+  /* 时间线 */
+  .timeline-section {
+    padding: 18px 22px 4px;
+  }
+  .section-title {
+    font-size: 10px;
+    font-weight: 700;
+    color: #a0a0a8;
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    margin-bottom: 14px;
+  }
+  .timeline {
+    position: relative;
+    padding-left: 18px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 4px;
+    top: 5px;
+    bottom: 5px;
+    width: 1.5px;
+    background: linear-gradient(180deg, #8da4c8 0%, #c47d76 30%, #c47d76 100%);
+    border-radius: 1px;
+    opacity: 0.5;
+  }
+  .tl-item {
+    position: relative;
+    margin-bottom: 12px;
+    padding: 10px 14px;
+    border-radius: 14px;
+  }
+  .tl-item.start {
+    background: rgba(141, 164, 200, 0.08);
+    border: 1px solid rgba(141, 164, 200, 0.12);
+  }
+  .tl-item.change {
+    background: rgba(196, 125, 118, 0.06);
+    border: 1px solid rgba(196, 125, 118, 0.1);
+  }
+  .tl-dot {
+    position: absolute;
+    left: -16px;
+    top: 13px;
+    width: 7px;
+    height: 7px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.8);
+  }
+  .start .tl-dot { background: #8da4c8; }
+  .change .tl-dot { background: #c47d76; }
+
+  .tl-date {
+    font-size: 10px;
+    color: #a0a0a8;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .tl-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .start .tl-title { color: #6e8aab; }
+  .change .tl-title { color: #b06b64; }
+  .tl-desc {
+    font-size: 11px;
+    color: #8e8e93;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .tl-impact-badge {
+    display: inline-block;
+    margin-top: 5px;
+    padding: 2px 8px;
+    border-radius: 8px;
+    font-size: 10px;
+    font-weight: 700;
+    background: rgba(196, 125, 118, 0.1);
+    color: #b06b64;
+  }
+
+  /* 甘特条 */
+  .gantt-section {
+    padding: 4px 22px 14px;
+  }
+  .gantt-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 5px;
+  }
+  .gantt-label {
+    width: 50px;
+    font-size: 10px;
+    font-weight: 600;
+    color: #a0a0a8;
+    flex-shrink: 0;
+  }
+  .gantt-label.new-label { color: #9e85b5; }
+  .gantt-track {
+    flex: 1;
+    height: 20px;
+    background: rgba(0,0,0,0.025);
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .gantt-fill {
+    height: 100%;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    padding-left: 7px;
+    font-size: 9px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.85);
+  }
+  .gf-blue { background: linear-gradient(90deg, #8da4c8, #a3b8d4); }
+  .gf-extended {
+    background: linear-gradient(90deg, #8da4c8 55%, #c47d76 55%);
+  }
+  .gf-new { background: linear-gradient(90deg, #9e85b5, #b09ac5); }
+
+  .gantt-footer {
+    margin-top: 8px;
+    padding-top: 8px;
+    border-top: 1px solid rgba(0,0,0,0.03);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 10px;
+  }
+  .gf-left { color: #a0a0a8; font-weight: 500; }
+  .gf-right { color: #b06b64; font-weight: 800; font-size: 11px; }
+
+  /* 结论 */
+  .verdict {
+    margin: 10px 22px 0;
+    padding: 14px;
+    background: rgba(196, 125, 118, 0.07);
+    border: 1px solid rgba(196, 125, 118, 0.1);
+    backdrop-filter: blur(10px);
+    -webkit-backdrop-filter: blur(10px);
+    border-radius: 18px;
+    text-align: center;
+  }
+  .verdict-big {
+    font-size: 24px;
+    font-weight: 900;
+    color: #c47d76;
+  }
+  .verdict-detail {
+    font-size: 11px;
+    color: #a0a0a8;
+    margin-top: 2px;
+  }
+  .verdict-line {
+    font-size: 12px;
+    font-weight: 700;
+    color: #b06b64;
+    margin-top: 5px;
+  }
+
+  .footer {
+    padding: 12px 22px 22px;
+    text-align: center;
+  }
+  .footer-text {
+    font-size: 9px;
+    color: #c7c7cc;
+    font-weight: 500;
+    letter-spacing: 0.5px;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <div class="header-top">
+      <div class="project-name">CRM 系统重构</div>
+      <div class="logo-badge">
+        <div class="logo-icon">S</div>
+        SCOPE SHIELD
+      </div>
+    </div>
+    <div class="header-date">2026年3月1日立项 · 4 个需求 · 3 次变更</div>
+  </div>
+
+  <div class="overview">
+    <div class="ov-item">
+      <div class="ov-num blue">15天</div>
+      <div class="ov-label">原始工期</div>
+    </div>
+    <div class="ov-arrow">→</div>
+    <div class="ov-item">
+      <div class="ov-num red">24天</div>
+      <div class="ov-label">当前工期</div>
+    </div>
+    <div class="ov-arrow">＝</div>
+    <div class="ov-item">
+      <div class="ov-num red">+60%</div>
+      <div class="ov-label">膨胀率</div>
+    </div>
+  </div>
+
+  <div class="timeline-section">
+    <div class="section-title">变更时间线</div>
+    <div class="timeline">
+      <div class="tl-item start">
+        <div class="tl-dot"></div>
+        <div class="tl-date">3月1日</div>
+        <div class="tl-title">项目立项 · 计划15天</div>
+        <div class="tl-desc">需求A 用户管理(8天) + 需求B 面板(4天) + 需求C 导出(3天)</div>
+      </div>
+
+      <div class="tl-item change">
+        <div class="tl-dot"></div>
+        <div class="tl-date">3月8日 · 产品经理</div>
+        <div class="tl-title">需求A 范围扩大</div>
+        <div class="tl-desc">新增 RBAC 权限体系、角色配置页</div>
+        <div class="tl-impact-badge">+4天 → 交付日 3.19</div>
+      </div>
+
+      <div class="tl-item change">
+        <div class="tl-dot"></div>
+        <div class="tl-date">3月12日 · 产品经理</div>
+        <div class="tl-title">需求B UI 推翻重做</div>
+        <div class="tl-desc">参考竞品重新设计，已完成页面废弃</div>
+        <div class="tl-impact-badge">+2天 → 交付日 3.21</div>
+      </div>
+
+      <div class="tl-item change">
+        <div class="tl-dot"></div>
+        <div class="tl-date">3月18日 · 领导</div>
+        <div class="tl-title">新增需求D：数据大屏</div>
+        <div class="tl-desc">客户参观用，含实时数据、动画图表</div>
+        <div class="tl-impact-badge">+3天 → 交付日 3.24</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="gantt-section">
+    <div class="section-title">需求工期</div>
+
+    <div class="gantt-row">
+      <div class="gantt-label">需求A</div>
+      <div class="gantt-track">
+        <div class="gantt-fill gf-extended" style="width: 72%;">8天→12天 (+4)</div>
+      </div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">需求B</div>
+      <div class="gantt-track">
+        <div class="gantt-fill gf-extended" style="width: 36%;">4天→6天 (+2)</div>
+      </div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">需求C</div>
+      <div class="gantt-track">
+        <div class="gantt-fill gf-blue" style="width: 18%;">3天</div>
+      </div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label new-label">需求D 🆕</div>
+      <div class="gantt-track">
+        <div class="gantt-fill gf-new" style="width: 18%;">3天 (新增)</div>
+      </div>
+    </div>
+
+    <div class="gantt-footer">
+      <div class="gf-left">原计划 15天 → 实际 24天</div>
+      <div class="gf-right">0 天来自开发</div>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <div class="verdict-big">延期 9 天</div>
+    <div class="verdict-detail">3 次变更 · 产品经理×2 · 领导×1</div>
+    <div class="verdict-line">100% 来自需求变更</div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-text">SCOPE SHIELD · 工期保险箱</div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,236 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    padding: 48px 52px;
+    width: 900px;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 5px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    background: rgba(59,130,246,0.18);
+    color: #60a5fa;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .desc {
+    color: #666;
+    font-size: 15px;
+    margin-bottom: 40px;
+    padding-left: 2px;
+  }
+
+  .expand-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 18px;
+  }
+  .expand-label {
+    width: 95px;
+    font-size: 14px;
+    color: #888;
+    flex-shrink: 0;
+  }
+  .expand-bar-wrap {
+    flex: 1;
+    position: relative;
+    height: 52px;
+  }
+  .bar-original {
+    height: 52px;
+    border-radius: 10px;
+    background: linear-gradient(90deg, #1e3a5f, #2563eb);
+    width: 58%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 16px;
+  }
+  .bar-original span {
+    font-size: 16px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .bar-current {
+    height: 52px;
+    display: flex;
+    width: 100%;
+    border-radius: 10px;
+    overflow: visible;
+    position: relative;
+  }
+  .seg {
+    height: 52px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 13px;
+    font-weight: 700;
+    color: rgba(255,255,255,0.95);
+    position: relative;
+  }
+  .seg-orig {
+    background: linear-gradient(90deg, #1e3a5f, #1e4a6f);
+    width: 46%;
+    border-radius: 10px 0 0 10px;
+    font-size: 14px;
+  }
+  .seg-c1 {
+    background: linear-gradient(90deg, #dc2626, #ef4444);
+    width: 22%;
+  }
+  .seg-c2 {
+    background: linear-gradient(90deg, #ea580c, #f97316);
+    width: 12%;
+  }
+  .seg-c3 {
+    background: linear-gradient(90deg, #dc2626, #b91c1c);
+    width: 20%;
+    border-radius: 0 10px 10px 0;
+  }
+
+  .pin {
+    position: absolute;
+    top: -32px;
+    left: 50%;
+    transform: translateX(-50%);
+    font-size: 12px;
+    white-space: nowrap;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-weight: 600;
+    line-height: 1.4;
+  }
+  .pin::after {
+    content: '';
+    position: absolute;
+    bottom: -5px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 5px solid transparent;
+    border-right: 5px solid transparent;
+  }
+  .pin-red { background: rgba(220,38,38,0.25); color: #fca5a5; }
+  .pin-red::after { border-top: 5px solid rgba(220,38,38,0.25); }
+  .pin-orange { background: rgba(234,88,12,0.25); color: #fdba74; }
+  .pin-orange::after { border-top: 5px solid rgba(234,88,12,0.25); }
+
+  .summary {
+    margin-top: 32px;
+    padding: 20px 24px;
+    background: rgba(220,38,38,0.08);
+    border: 1px solid rgba(220,38,38,0.25);
+    border-radius: 14px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .verdict {
+    font-size: 22px;
+    font-weight: 800;
+    color: #fca5a5;
+  }
+  .detail {
+    font-size: 13px;
+    color: #777;
+    margin-top: 4px;
+  }
+
+  .tag-row {
+    margin-top: 24px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    padding: 5px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(59,130,246,0.1);
+    color: #60a5fa;
+    border: 1px solid rgba(59,130,246,0.15);
+  }
+
+  .watermark {
+    margin-top: 32px;
+    text-align: right;
+    font-size: 12px;
+    color: #333;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="badge">方案 A</span>
+  <h1>膨胀对比条</h1>
+</div>
+<div class="desc">一眼看出"从多短膨胀到多长"，每段延期都标注责任人</div>
+
+<div class="expand-row">
+  <div class="expand-label">原始计划</div>
+  <div class="expand-bar-wrap">
+    <div class="bar-original"><span>15 天</span></div>
+  </div>
+</div>
+
+<div class="expand-row" style="margin-top: 36px;">
+  <div class="expand-label">实际工期</div>
+  <div class="expand-bar-wrap">
+    <div class="bar-current">
+      <div class="seg seg-orig">原计划 15天</div>
+      <div class="seg seg-c1" style="position:relative;">
+        +4天
+        <div class="pin pin-red">3.8 产品经理改范围</div>
+      </div>
+      <div class="seg seg-c2" style="position:relative;">
+        +2天
+        <div class="pin pin-orange">3.12 UI 推翻重做</div>
+      </div>
+      <div class="seg seg-c3" style="position:relative;">
+        +3天
+        <div class="pin pin-red">3.18 老板加功能</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div class="summary">
+  <div>
+    <div class="verdict">延期 9 天 = 100% 来自需求变更</div>
+    <div class="detail">3 次变更 · 2 位需求方 · 原计划 3.15 交付 → 实际 3.24</div>
+  </div>
+</div>
+
+<div class="tag-row">
+  <span class="tag">直观性 ★★★★★</span>
+  <span class="tag">3秒看懂</span>
+  <span class="tag">适合日常发群</span>
+  <span class="tag">杀伤力最强</span>
+</div>
+
+<div class="watermark">工期保险箱 · Scope Shield</div>
+
+</body>
+</html>

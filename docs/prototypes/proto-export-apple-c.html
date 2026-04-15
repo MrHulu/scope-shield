@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  /* 不使用 @import 外部字体 — 防止加载失败导致空白 */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #ffffff;
+    width: 390px;
+    padding: 0;
+  }
+
+  .card {
+    background: #ffffff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+  }
+
+  /* 顶部 */
+  .header {
+    padding: 28px 24px 16px;
+    background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .project-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1d1d1f;
+    letter-spacing: -0.3px;
+  }
+  .logo-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #8e8e93;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .logo-icon {
+    width: 16px;
+    height: 16px;
+    background: linear-gradient(135deg, #007aff, #5856d6);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 900;
+  }
+  .header-date {
+    font-size: 12px;
+    color: #8e8e93;
+    font-weight: 500;
+  }
+
+  /* 概览数字 */
+  .overview {
+    padding: 16px 24px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+  }
+  .ov-item {
+    text-align: center;
+  }
+  .ov-num {
+    font-size: 20px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+  }
+  .ov-num.blue { color: #007aff; }
+  .ov-num.red { color: #ff3b30; }
+  .ov-label {
+    font-size: 10px;
+    color: #8e8e93;
+    font-weight: 600;
+    margin-top: 1px;
+  }
+  .ov-arrow {
+    font-size: 16px;
+    color: #c7c7cc;
+  }
+
+  /* 时间线 */
+  .timeline-section {
+    padding: 20px 24px 4px;
+  }
+  .section-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #8e8e93;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 16px;
+  }
+  .timeline {
+    position: relative;
+    padding-left: 20px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 5px;
+    top: 6px;
+    bottom: 6px;
+    width: 2px;
+    background: linear-gradient(180deg, #007aff 0%, #ff3b30 30%, #ff3b30 100%);
+    border-radius: 1px;
+  }
+  .tl-item {
+    position: relative;
+    margin-bottom: 16px;
+    padding: 10px 14px;
+    border-radius: 12px;
+  }
+  .tl-item.start {
+    background: rgba(0,122,255,0.05);
+    border: 1px solid rgba(0,122,255,0.1);
+  }
+  .tl-item.change {
+    background: rgba(255,59,48,0.04);
+    border: 1px solid rgba(255,59,48,0.08);
+  }
+  .tl-dot {
+    position: absolute;
+    left: -18px;
+    top: 14px;
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    border: 2px solid #fff;
+  }
+  .start .tl-dot { background: #007aff; }
+  .change .tl-dot { background: #ff3b30; }
+
+  .tl-date {
+    font-size: 10px;
+    color: #8e8e93;
+    font-weight: 600;
+    margin-bottom: 2px;
+  }
+  .tl-title {
+    font-size: 13px;
+    font-weight: 700;
+    margin-bottom: 2px;
+  }
+  .start .tl-title { color: #007aff; }
+  .change .tl-title { color: #ff3b30; }
+  .tl-desc {
+    font-size: 11px;
+    color: #8e8e93;
+    font-weight: 500;
+    line-height: 1.4;
+  }
+  .tl-impact-badge {
+    display: inline-block;
+    margin-top: 6px;
+    padding: 2px 8px;
+    border-radius: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    background: rgba(255,59,48,0.1);
+    color: #ff3b30;
+  }
+
+  /* 甘特条 */
+  .gantt-section {
+    padding: 4px 24px 16px;
+  }
+  .gantt-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 6px;
+  }
+  .gantt-label {
+    width: 52px;
+    font-size: 11px;
+    font-weight: 600;
+    color: #8e8e93;
+    flex-shrink: 0;
+  }
+  .gantt-label.new-label {
+    color: #ff9f0a;
+  }
+  .gantt-track {
+    flex: 1;
+    height: 22px;
+    background: #f5f5f7;
+    border-radius: 8px;
+    overflow: hidden;
+  }
+  .gantt-fill {
+    height: 100%;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    padding-left: 8px;
+    font-size: 9px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .gf-blue { background: linear-gradient(90deg, #007aff, #5ac8fa); }
+  .gf-extended {
+    background: linear-gradient(90deg, #007aff 55%, #ff3b30 55%);
+  }
+  .gf-new { background: linear-gradient(90deg, #af52de, #bf6be0); }
+
+  .gantt-footer {
+    margin-top: 10px;
+    padding-top: 10px;
+    border-top: 1px solid rgba(0,0,0,0.04);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 11px;
+  }
+  .gf-left {
+    color: #8e8e93;
+    font-weight: 500;
+  }
+  .gf-right {
+    color: #ff3b30;
+    font-weight: 800;
+    font-size: 12px;
+  }
+
+  /* 底部结论 */
+  .verdict {
+    margin: 12px 24px 0;
+    padding: 14px;
+    background: linear-gradient(135deg, #fff5f5, #fff0f0);
+    border: 1px solid rgba(255,59,48,0.1);
+    border-radius: 16px;
+    text-align: center;
+  }
+  .verdict-big {
+    font-size: 24px;
+    font-weight: 900;
+    color: #ff3b30;
+  }
+  .verdict-detail {
+    font-size: 11px;
+    color: #8e8e93;
+    margin-top: 2px;
+  }
+  .verdict-line {
+    font-size: 12px;
+    font-weight: 700;
+    color: #ff3b30;
+    margin-top: 6px;
+  }
+
+  .footer {
+    padding: 14px 24px 22px;
+    text-align: center;
+  }
+  .footer-text {
+    font-size: 10px;
+    color: #c7c7cc;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <div class="header-top">
+      <div class="project-name">CRM 系统重构</div>
+      <div class="logo-badge">
+        <div class="logo-icon">S</div>
+        SCOPE SHIELD
+      </div>
+    </div>
+    <div class="header-date">2026年3月1日立项 · 4 个需求 · 3 次变更</div>
+  </div>
+
+  <div class="overview">
+    <div class="ov-item">
+      <div class="ov-num blue">15天</div>
+      <div class="ov-label">原始工期</div>
+    </div>
+    <div class="ov-arrow">→</div>
+    <div class="ov-item">
+      <div class="ov-num red">24天</div>
+      <div class="ov-label">当前工期</div>
+    </div>
+    <div class="ov-arrow">＝</div>
+    <div class="ov-item">
+      <div class="ov-num red">+60%</div>
+      <div class="ov-label">膨胀率</div>
+    </div>
+  </div>
+
+  <!-- 时间线 -->
+  <div class="timeline-section">
+    <div class="section-title">变更时间线</div>
+    <div class="timeline">
+      <div class="tl-item start">
+        <div class="tl-dot"></div>
+        <div class="tl-date">3月1日</div>
+        <div class="tl-title">项目立项 · 计划15天</div>
+        <div class="tl-desc">需求A 用户管理(8天) + 需求B 面板(4天) + 需求C 导出(3天)</div>
+      </div>
+
+      <div class="tl-item change">
+        <div class="tl-dot"></div>
+        <div class="tl-date">3月8日 · 产品经理</div>
+        <div class="tl-title">需求A 范围扩大</div>
+        <div class="tl-desc">新增 RBAC 权限体系、角色配置页</div>
+        <div class="tl-impact-badge">+4天 → 交付日 3.19</div>
+      </div>
+
+      <div class="tl-item change">
+        <div class="tl-dot"></div>
+        <div class="tl-date">3月12日 · 产品经理</div>
+        <div class="tl-title">需求B UI 推翻重做</div>
+        <div class="tl-desc">参考竞品重新设计，已完成页面废弃</div>
+        <div class="tl-impact-badge">+2天 → 交付日 3.21</div>
+      </div>
+
+      <div class="tl-item change">
+        <div class="tl-dot"></div>
+        <div class="tl-date">3月18日 · 领导</div>
+        <div class="tl-title">新增需求D：数据大屏</div>
+        <div class="tl-desc">客户参观用，含实时数据、动画图表</div>
+        <div class="tl-impact-badge">+3天 → 交付日 3.24</div>
+      </div>
+    </div>
+  </div>
+
+  <!-- 甘特条 -->
+  <div class="gantt-section">
+    <div class="section-title">需求工期</div>
+
+    <div class="gantt-row">
+      <div class="gantt-label">需求A</div>
+      <div class="gantt-track">
+        <div class="gantt-fill gf-extended" style="width: 72%;">8天→12天 (+4)</div>
+      </div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">需求B</div>
+      <div class="gantt-track">
+        <div class="gantt-fill gf-extended" style="width: 36%;">4天→6天 (+2)</div>
+      </div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label">需求C</div>
+      <div class="gantt-track">
+        <div class="gantt-fill gf-blue" style="width: 18%;">3天</div>
+      </div>
+    </div>
+    <div class="gantt-row">
+      <div class="gantt-label new-label">需求D 🆕</div>
+      <div class="gantt-track">
+        <div class="gantt-fill gf-new" style="width: 18%;">3天 (新增)</div>
+      </div>
+    </div>
+
+    <div class="gantt-footer">
+      <div class="gf-left">原计划 15天 → 实际 24天</div>
+      <div class="gf-right">0 天来自开发</div>
+    </div>
+  </div>
+
+  <div class="verdict">
+    <div class="verdict-big">延期 9 天</div>
+    <div class="verdict-detail">3 次变更 · 产品经理×2 · 领导×1</div>
+    <div class="verdict-line">100% 来自需求变更</div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-text">Scope Shield · 工期保险箱</div>
+  </div>
+</div>
+
+</body>
+</html>

@@ -1,0 +1,258 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    padding: 48px 52px;
+    width: 900px;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 5px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    background: rgba(245,158,11,0.18);
+    color: #fbbf24;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .desc {
+    color: #666;
+    font-size: 15px;
+    margin-bottom: 40px;
+    padding-left: 2px;
+  }
+
+  .waterfall {
+    display: flex;
+    align-items: flex-end;
+    height: 300px;
+    padding: 0 10px;
+    gap: 4px;
+    border-bottom: 2px solid #1e1e2e;
+    position: relative;
+  }
+  .wf-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+  }
+  .wf-block {
+    width: 100%;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-weight: 700;
+    color: rgba(255,255,255,0.95);
+    position: relative;
+  }
+  .wf-base {
+    background: linear-gradient(180deg, #2563eb, #1e40af);
+    border-radius: 0 0 8px 8px;
+  }
+  .wf-add {
+    background: linear-gradient(180deg, #ef4444, #dc2626);
+    border-radius: 8px 8px 0 0;
+  }
+  .wf-new {
+    background: linear-gradient(180deg, #f97316, #ea580c);
+    border-radius: 8px 8px 0 0;
+  }
+  .wf-stacked {
+    background: rgba(239,68,68,0.25);
+  }
+  .wf-label {
+    margin-top: 14px;
+    font-size: 12px;
+    color: #666;
+    text-align: center;
+    line-height: 1.4;
+  }
+  .wf-label .who {
+    font-weight: 600;
+  }
+  .wf-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 36px;
+    color: #333;
+    font-size: 22px;
+    align-self: center;
+    flex-shrink: 0;
+  }
+  .wf-days {
+    font-size: 11px;
+    margin-top: 2px;
+    opacity: 0.7;
+  }
+
+  .legend {
+    display: flex;
+    gap: 24px;
+    margin-top: 24px;
+    justify-content: center;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    font-size: 13px;
+    color: #888;
+  }
+  .legend-dot {
+    width: 12px;
+    height: 12px;
+    border-radius: 4px;
+  }
+
+  .big-summary {
+    margin-top: 28px;
+    text-align: center;
+    padding: 24px;
+    background: rgba(220,38,38,0.08);
+    border: 1px solid rgba(220,38,38,0.25);
+    border-radius: 14px;
+  }
+  .big-number {
+    font-size: 48px;
+    font-weight: 900;
+    color: #fca5a5;
+    line-height: 1;
+  }
+  .big-label {
+    font-size: 15px;
+    color: #888;
+    margin-top: 8px;
+  }
+
+  .tag-row {
+    margin-top: 24px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+    justify-content: center;
+  }
+  .tag {
+    padding: 5px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(245,158,11,0.1);
+    color: #fbbf24;
+    border: 1px solid rgba(245,158,11,0.15);
+  }
+
+  .watermark {
+    margin-top: 32px;
+    text-align: right;
+    font-size: 12px;
+    color: #333;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="badge">方案 B</span>
+  <h1>瀑布堆叠图</h1>
+</div>
+<div class="desc">像财报一样，看每一次需求变更怎么把工期一步步堆上去的</div>
+
+<div class="waterfall">
+  <div class="wf-col">
+    <div class="wf-block wf-base" style="height: 150px; border-radius: 8px; font-size: 16px;">
+      <span>15天</span>
+      <span class="wf-days">原计划</span>
+    </div>
+    <div class="wf-label">原始计划</div>
+  </div>
+
+  <div class="wf-arrow">→</div>
+
+  <div class="wf-col">
+    <div class="wf-block wf-add" style="height: 40px; font-size: 14px;">
+      <span>+4天</span>
+    </div>
+    <div class="wf-block wf-base" style="height: 150px;">
+    </div>
+    <div class="wf-label">3.8 改范围<br><span class="who" style="color:#fca5a5">产品经理</span></div>
+  </div>
+
+  <div class="wf-arrow">→</div>
+
+  <div class="wf-col">
+    <div class="wf-block wf-add" style="height: 20px; font-size: 11px;">
+      <span>+2天</span>
+    </div>
+    <div class="wf-block wf-stacked" style="height: 40px;"></div>
+    <div class="wf-block wf-base" style="height: 150px;">
+    </div>
+    <div class="wf-label">3.12 UI重做<br><span class="who" style="color:#fca5a5">产品经理</span></div>
+  </div>
+
+  <div class="wf-arrow">→</div>
+
+  <div class="wf-col">
+    <div class="wf-block wf-new" style="height: 30px; font-size: 12px;">
+      <span>+3天</span>
+    </div>
+    <div class="wf-block wf-stacked" style="height: 60px;"></div>
+    <div class="wf-block wf-base" style="height: 150px;">
+    </div>
+    <div class="wf-label">3.18 加功能<br><span class="who" style="color:#fdba74">老板</span></div>
+  </div>
+
+  <div class="wf-arrow" style="font-size: 28px; font-weight: 900; color: #555;">=</div>
+
+  <div class="wf-col">
+    <div class="wf-block" style="height: 90px; background: linear-gradient(180deg, #ef4444, #dc2626); border-radius: 8px 8px 0 0; font-size: 18px;">
+      <span style="font-weight: 900;">+9天</span>
+      <span class="wf-days">变更总计</span>
+    </div>
+    <div class="wf-block wf-base" style="height: 150px; border-radius: 0 0 8px 8px; font-size: 14px;">
+      <span>15天</span>
+    </div>
+    <div class="wf-label" style="font-weight: 700; color: #fca5a5; font-size: 14px;">共 24 天</div>
+  </div>
+</div>
+
+<div class="legend">
+  <div class="legend-item"><div class="legend-dot" style="background:#2563eb;"></div>原始工期</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div>产品经理变更</div>
+  <div class="legend-item"><div class="legend-dot" style="background:#f97316;"></div>老板变更</div>
+</div>
+
+<div class="big-summary">
+  <div class="big-number">+60%</div>
+  <div class="big-label">工期膨胀率 · 9 天延期 · 0 天来自开发</div>
+</div>
+
+<div class="tag-row">
+  <span class="tag">信息密度 ★★★★★</span>
+  <span class="tag">+60% 数字震撼</span>
+  <span class="tag">适合复盘/月报</span>
+  <span class="tag">正式场合</span>
+</div>
+
+<div class="watermark">工期保险箱 · Scope Shield</div>
+
+</body>
+</html>

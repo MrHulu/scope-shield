@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  /* 不使用 @import 外部字体 — 防止加载失败导致空白 */
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #ffffff;
+    width: 390px;
+    padding: 0;
+  }
+
+  .card {
+    background: #ffffff;
+    border-radius: 24px;
+    overflow: hidden;
+    box-shadow: 0 2px 20px rgba(0,0,0,0.06);
+  }
+
+  /* 顶部 header */
+  .header {
+    padding: 28px 24px 20px;
+    background: linear-gradient(135deg, #f8f9ff 0%, #f0f4ff 100%);
+    border-bottom: 1px solid rgba(0,0,0,0.04);
+  }
+  .header-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 4px;
+  }
+  .project-name {
+    font-size: 20px;
+    font-weight: 800;
+    color: #1d1d1f;
+    letter-spacing: -0.3px;
+  }
+  .logo-badge {
+    font-size: 10px;
+    font-weight: 700;
+    color: #8e8e93;
+    letter-spacing: 0.5px;
+    display: flex;
+    align-items: center;
+    gap: 4px;
+  }
+  .logo-icon {
+    width: 16px;
+    height: 16px;
+    background: linear-gradient(135deg, #007aff, #5856d6);
+    border-radius: 4px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #fff;
+    font-size: 9px;
+    font-weight: 900;
+  }
+  .header-date {
+    font-size: 12px;
+    color: #8e8e93;
+    font-weight: 500;
+  }
+
+  /* 统计卡片行 */
+  .stats-row {
+    display: flex;
+    gap: 8px;
+    padding: 16px 24px;
+  }
+  .stat {
+    flex: 1;
+    background: #f5f5f7;
+    border-radius: 14px;
+    padding: 12px 10px;
+    text-align: center;
+  }
+  .stat-number {
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.5px;
+  }
+  .stat-number.blue { color: #007aff; }
+  .stat-number.red { color: #ff3b30; }
+  .stat-number.green { color: #34c759; }
+  .stat-label {
+    font-size: 10px;
+    color: #8e8e93;
+    font-weight: 600;
+    margin-top: 2px;
+    letter-spacing: 0.3px;
+  }
+
+  /* 膨胀对比条 */
+  .chart-section {
+    padding: 4px 24px 20px;
+  }
+  .chart-title {
+    font-size: 11px;
+    font-weight: 700;
+    color: #8e8e93;
+    text-transform: uppercase;
+    letter-spacing: 0.8px;
+    margin-bottom: 14px;
+  }
+  .bar-group {
+    margin-bottom: 16px;
+  }
+  .bar-label {
+    font-size: 11px;
+    color: #8e8e93;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .bar-track {
+    height: 36px;
+    border-radius: 12px;
+    overflow: hidden;
+    background: #f5f5f7;
+  }
+  .bar-fill-orig {
+    height: 100%;
+    background: linear-gradient(90deg, #007aff, #5ac8fa);
+    border-radius: 12px;
+    width: 56%;
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    padding-right: 10px;
+    font-size: 12px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .bar-actual-track {
+    height: 36px;
+    display: flex;
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .seg {
+    height: 36px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 10px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .seg-base {
+    background: linear-gradient(90deg, #007aff, #5ac8fa);
+    flex: 15;
+  }
+  .seg-c1 {
+    background: #ff3b30;
+    flex: 4;
+  }
+  .seg-c2 {
+    background: #ff9f0a;
+    flex: 2;
+  }
+  .seg-c3 {
+    background: #af52de;
+    flex: 3;
+  }
+
+  /* 标注 */
+  .annotations {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-top: 14px;
+  }
+  .anno {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+  .anno-dot {
+    width: 8px;
+    height: 8px;
+    border-radius: 50%;
+    flex-shrink: 0;
+  }
+  .anno-text {
+    font-size: 11px;
+    color: #3a3a3c;
+    font-weight: 500;
+    flex: 1;
+  }
+  .anno-days {
+    font-size: 12px;
+    font-weight: 700;
+    flex-shrink: 0;
+  }
+
+  /* 底部结论 */
+  .verdict-section {
+    margin: 16px 24px 0;
+    padding: 16px;
+    background: linear-gradient(135deg, #fff5f5, #fff0f0);
+    border: 1px solid rgba(255,59,48,0.1);
+    border-radius: 16px;
+    text-align: center;
+  }
+  .verdict-big {
+    font-size: 28px;
+    font-weight: 900;
+    color: #ff3b30;
+    letter-spacing: -0.5px;
+  }
+  .verdict-sub {
+    font-size: 12px;
+    color: #8e8e93;
+    font-weight: 500;
+    margin-top: 4px;
+  }
+  .verdict-line {
+    font-size: 13px;
+    font-weight: 700;
+    color: #ff3b30;
+    margin-top: 8px;
+  }
+
+  /* 底部 footer */
+  .footer {
+    padding: 16px 24px 24px;
+    text-align: center;
+  }
+  .footer-text {
+    font-size: 10px;
+    color: #c7c7cc;
+    font-weight: 500;
+  }
+</style>
+</head>
+<body>
+
+<div class="card">
+  <div class="header">
+    <div class="header-top">
+      <div class="project-name">CRM 系统重构</div>
+      <div class="logo-badge">
+        <div class="logo-icon">S</div>
+        SCOPE SHIELD
+      </div>
+    </div>
+    <div class="header-date">2026年3月1日立项 · 截至 3月24日</div>
+  </div>
+
+  <div class="stats-row">
+    <div class="stat">
+      <div class="stat-number blue">15天</div>
+      <div class="stat-label">原始工期</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number red">24天</div>
+      <div class="stat-label">当前工期</div>
+    </div>
+    <div class="stat">
+      <div class="stat-number red">+60%</div>
+      <div class="stat-label">膨胀率</div>
+    </div>
+  </div>
+
+  <div class="chart-section">
+    <div class="chart-title">工期对比</div>
+
+    <div class="bar-group">
+      <div class="bar-label">原始计划</div>
+      <div class="bar-track">
+        <div class="bar-fill-orig">15 天</div>
+      </div>
+    </div>
+
+    <div class="bar-group">
+      <div class="bar-label">实际工期</div>
+      <div class="bar-actual-track">
+        <div class="seg seg-base">15天</div>
+        <div class="seg seg-c1">+4</div>
+        <div class="seg seg-c2">+2</div>
+        <div class="seg seg-c3">+3</div>
+      </div>
+    </div>
+
+    <div class="annotations">
+      <div class="anno">
+        <div class="anno-dot" style="background:#ff3b30;"></div>
+        <div class="anno-text">3.8 · 产品经理 · 需求A范围扩大</div>
+        <div class="anno-days" style="color:#ff3b30;">+4 天</div>
+      </div>
+      <div class="anno">
+        <div class="anno-dot" style="background:#ff9f0a;"></div>
+        <div class="anno-text">3.12 · 产品经理 · UI 推翻重做</div>
+        <div class="anno-days" style="color:#cc7700;">+2 天</div>
+      </div>
+      <div class="anno">
+        <div class="anno-dot" style="background:#af52de;"></div>
+        <div class="anno-text">3.18 · 领导 · 新增数据大屏</div>
+        <div class="anno-days" style="color:#af52de;">+3 天</div>
+      </div>
+    </div>
+  </div>
+
+  <div class="verdict-section">
+    <div class="verdict-big">延期 9 天</div>
+    <div class="verdict-sub">3 次需求变更 · 2 位需求方</div>
+    <div class="verdict-line">100% 来自需求变更 · 0 天来自开发</div>
+  </div>
+
+  <div class="footer">
+    <div class="footer-text">Scope Shield · 工期保险箱</div>
+  </div>
+</div>
+
+</body>
+</html>

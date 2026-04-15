@@ -1,0 +1,799 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>工期保险箱 — 可视化原型对比</title>
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    padding: 40px 20px;
+  }
+  .page-title {
+    text-align: center;
+    margin-bottom: 60px;
+  }
+  .page-title h1 {
+    font-size: 36px;
+    font-weight: 700;
+    background: linear-gradient(135deg, #60a5fa, #a78bfa, #f472b6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
+    margin-bottom: 8px;
+  }
+  .page-title p {
+    color: #666;
+    font-size: 16px;
+  }
+
+  .prototype {
+    max-width: 900px;
+    margin: 0 auto 80px;
+    background: #12121a;
+    border-radius: 20px;
+    padding: 40px;
+    border: 1px solid #1e1e2e;
+    position: relative;
+    overflow: hidden;
+  }
+  .prototype::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+  }
+  .proto-1::before { background: linear-gradient(90deg, #3b82f6, #60a5fa); }
+  .proto-2::before { background: linear-gradient(90deg, #f59e0b, #fbbf24); }
+  .proto-3::before { background: linear-gradient(90deg, #10b981, #34d399); }
+
+  .proto-label {
+    display: inline-block;
+    padding: 4px 14px;
+    border-radius: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    margin-bottom: 16px;
+  }
+  .proto-1 .proto-label { background: rgba(59,130,246,0.15); color: #60a5fa; }
+  .proto-2 .proto-label { background: rgba(245,158,11,0.15); color: #fbbf24; }
+  .proto-3 .proto-label { background: rgba(16,185,129,0.15); color: #34d399; }
+
+  .proto-title {
+    font-size: 24px;
+    font-weight: 700;
+    margin-bottom: 6px;
+  }
+  .proto-desc {
+    color: #888;
+    font-size: 14px;
+    margin-bottom: 30px;
+  }
+
+  /* ========== 方案1: 膨胀对比条 ========== */
+  .expand-chart {
+    position: relative;
+  }
+  .expand-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 16px;
+  }
+  .expand-label {
+    width: 90px;
+    font-size: 13px;
+    color: #888;
+    flex-shrink: 0;
+  }
+  .expand-bar-wrap {
+    flex: 1;
+    position: relative;
+    height: 44px;
+  }
+  .expand-bar {
+    height: 44px;
+    border-radius: 8px;
+    display: flex;
+    align-items: center;
+    position: relative;
+    transition: width 0.6s ease;
+  }
+  .expand-bar-original {
+    background: linear-gradient(90deg, #1e3a5f, #2563eb);
+    width: 60%;
+  }
+  .expand-bar-current {
+    width: 100%;
+    background: transparent;
+    overflow: visible;
+  }
+  .expand-bar-current .bar-segment {
+    height: 44px;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    position: relative;
+  }
+  .seg-original {
+    background: linear-gradient(90deg, #1e3a5f, #1e4a6f);
+    width: 48%;
+    border-radius: 8px 0 0 8px;
+  }
+  .seg-change1 {
+    background: linear-gradient(90deg, #dc2626, #ef4444);
+    width: 20%;
+  }
+  .seg-change2 {
+    background: linear-gradient(90deg, #ea580c, #f97316);
+    width: 12%;
+  }
+  .seg-change3 {
+    background: linear-gradient(90deg, #dc2626, #b91c1c);
+    width: 20%;
+    border-radius: 0 8px 8px 0;
+  }
+
+  .expand-bar .bar-days {
+    position: absolute;
+    right: 12px;
+    font-size: 14px;
+    font-weight: 700;
+    color: #fff;
+  }
+
+  .change-pin {
+    position: absolute;
+    top: -28px;
+    font-size: 11px;
+    white-space: nowrap;
+    padding: 2px 8px;
+    border-radius: 4px;
+    font-weight: 500;
+  }
+  .change-pin::after {
+    content: '';
+    position: absolute;
+    bottom: -4px;
+    left: 50%;
+    transform: translateX(-50%);
+    width: 0; height: 0;
+    border-left: 4px solid transparent;
+    border-right: 4px solid transparent;
+  }
+  .pin-red { background: rgba(220,38,38,0.2); color: #fca5a5; }
+  .pin-red::after { border-top: 4px solid rgba(220,38,38,0.2); }
+  .pin-orange { background: rgba(234,88,12,0.2); color: #fdba74; }
+  .pin-orange::after { border-top: 4px solid rgba(234,88,12,0.2); }
+
+  .expand-summary {
+    margin-top: 24px;
+    padding: 16px 20px;
+    background: rgba(220,38,38,0.08);
+    border: 1px solid rgba(220,38,38,0.2);
+    border-radius: 12px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .expand-summary .verdict {
+    font-size: 20px;
+    font-weight: 700;
+    color: #fca5a5;
+  }
+  .expand-summary .detail {
+    font-size: 13px;
+    color: #888;
+  }
+
+  /* ========== 方案2: 瀑布堆叠图 ========== */
+  .waterfall {
+    display: flex;
+    align-items: flex-end;
+    height: 280px;
+    padding: 0 20px;
+    gap: 6px;
+    border-bottom: 1px solid #2a2a3a;
+    position: relative;
+  }
+  .waterfall-col {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    flex: 1;
+    position: relative;
+  }
+  .wf-block {
+    width: 100%;
+    border-radius: 6px 6px 0 0;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    font-size: 12px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.9);
+    position: relative;
+    min-height: 30px;
+  }
+  .wf-base {
+    background: linear-gradient(180deg, #2563eb, #1e40af);
+  }
+  .wf-add {
+    background: linear-gradient(180deg, #ef4444, #dc2626);
+    border-radius: 6px 6px 0 0;
+  }
+  .wf-new {
+    background: linear-gradient(180deg, #f97316, #ea580c);
+  }
+  .wf-label {
+    margin-top: 10px;
+    font-size: 11px;
+    color: #666;
+    text-align: center;
+    line-height: 1.3;
+  }
+  .wf-arrow {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 40px;
+    color: #444;
+    font-size: 20px;
+    align-self: center;
+    flex-shrink: 0;
+  }
+  .wf-days {
+    font-size: 11px;
+    margin-top: 2px;
+    opacity: 0.8;
+  }
+
+  .waterfall-legend {
+    display: flex;
+    gap: 20px;
+    margin-top: 20px;
+    justify-content: center;
+  }
+  .legend-item {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 12px;
+    color: #888;
+  }
+  .legend-dot {
+    width: 10px;
+    height: 10px;
+    border-radius: 3px;
+  }
+
+  .waterfall-summary {
+    margin-top: 20px;
+    text-align: center;
+    padding: 16px;
+    background: rgba(220,38,38,0.08);
+    border: 1px solid rgba(220,38,38,0.2);
+    border-radius: 12px;
+  }
+  .waterfall-summary .big-number {
+    font-size: 36px;
+    font-weight: 800;
+    color: #fca5a5;
+  }
+  .waterfall-summary .big-label {
+    font-size: 13px;
+    color: #888;
+    margin-top: 4px;
+  }
+
+  /* ========== 方案3: 时间线故事图 ========== */
+  .timeline {
+    position: relative;
+    padding-left: 40px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 18px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, #2563eb 0%, #ef4444 50%, #ef4444 100%);
+  }
+  .tl-node {
+    position: relative;
+    margin-bottom: 28px;
+    padding: 16px 20px;
+    background: #1a1a28;
+    border-radius: 12px;
+    border: 1px solid #2a2a3a;
+  }
+  .tl-node.tl-change {
+    border-color: rgba(239,68,68,0.3);
+    background: rgba(239,68,68,0.04);
+  }
+  .tl-node.tl-start {
+    border-color: rgba(37,99,235,0.3);
+    background: rgba(37,99,235,0.04);
+  }
+  .tl-dot {
+    position: absolute;
+    left: -30px;
+    top: 20px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #0a0a0f;
+  }
+  .tl-start .tl-dot { background: #3b82f6; }
+  .tl-change .tl-dot { background: #ef4444; }
+  .tl-end .tl-dot { background: #10b981; }
+
+  .tl-date {
+    font-size: 12px;
+    color: #666;
+    margin-bottom: 4px;
+  }
+  .tl-title {
+    font-size: 15px;
+    font-weight: 600;
+    margin-bottom: 6px;
+  }
+  .tl-change .tl-title { color: #fca5a5; }
+  .tl-start .tl-title { color: #93c5fd; }
+  .tl-end .tl-title { color: #6ee7b7; }
+  .tl-detail {
+    font-size: 13px;
+    color: #888;
+    line-height: 1.5;
+  }
+  .tl-impact {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 3px 10px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+  }
+  .tl-change .tl-impact {
+    background: rgba(239,68,68,0.15);
+    color: #fca5a5;
+  }
+
+  /* 时间线底部的甘特条 */
+  .tl-gantt {
+    margin-top: 30px;
+    padding: 20px;
+    background: #1a1a28;
+    border-radius: 12px;
+    border: 1px solid #2a2a3a;
+  }
+  .tl-gantt-title {
+    font-size: 13px;
+    color: #666;
+    margin-bottom: 16px;
+    font-weight: 600;
+  }
+  .tl-gantt-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .tl-gantt-label {
+    width: 70px;
+    font-size: 12px;
+    color: #888;
+    flex-shrink: 0;
+  }
+  .tl-gantt-track {
+    flex: 1;
+    height: 28px;
+    background: #0f0f18;
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+  .tl-gantt-fill {
+    height: 100%;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    padding-left: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.8);
+  }
+  .tl-gantt-fill.original {
+    background: linear-gradient(90deg, #1e3a5f, #2563eb);
+  }
+  .tl-gantt-fill.extended {
+    background: linear-gradient(90deg, #1e3a5f, #2563eb 55%, #ef4444 55%, #ef4444);
+  }
+  .tl-gantt-fill.new-req {
+    background: linear-gradient(90deg, #ea580c, #f97316);
+  }
+
+  .tl-gantt-total {
+    margin-top: 16px;
+    padding-top: 12px;
+    border-top: 1px solid #2a2a3a;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .tl-gantt-total .left {
+    font-size: 13px;
+    color: #888;
+  }
+  .tl-gantt-total .right {
+    font-size: 18px;
+    font-weight: 700;
+    color: #fca5a5;
+  }
+
+  /* 评价区 */
+  .eval {
+    margin-top: 24px;
+    padding: 16px 20px;
+    background: #0f0f18;
+    border-radius: 10px;
+    border: 1px solid #1e1e2e;
+  }
+  .eval-row {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 8px;
+    font-size: 13px;
+  }
+  .eval-row:last-child { margin-bottom: 0; }
+  .eval-label { color: #666; }
+  .eval-value { font-weight: 600; }
+  .eval-good { color: #34d399; }
+  .eval-mid { color: #fbbf24; }
+  .eval-bad { color: #f87171; }
+
+  /* 投票按钮 */
+  .vote-section {
+    text-align: center;
+    margin-top: 80px;
+    padding: 40px;
+    background: #12121a;
+    border-radius: 20px;
+    border: 1px solid #1e1e2e;
+    max-width: 900px;
+    margin-left: auto;
+    margin-right: auto;
+  }
+  .vote-section h2 {
+    font-size: 22px;
+    margin-bottom: 8px;
+  }
+  .vote-section p {
+    color: #666;
+    font-size: 14px;
+    margin-bottom: 24px;
+  }
+
+  /* 用于最终展示的"发到群里"模拟 */
+  .chat-mock {
+    max-width: 420px;
+    margin: 40px auto 0;
+    background: #ededed;
+    border-radius: 16px;
+    padding: 20px;
+  }
+  .chat-bubble {
+    background: #fff;
+    border-radius: 12px;
+    padding: 12px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.08);
+  }
+  .chat-name {
+    font-size: 12px;
+    color: #999;
+    margin-bottom: 8px;
+  }
+  .chat-img {
+    width: 100%;
+    border-radius: 8px;
+    background: #1a1a28;
+    padding: 16px;
+  }
+</style>
+</head>
+<body>
+
+<div class="page-title">
+  <h1>工期保险箱 — 可视化原型</h1>
+  <p>三种"甩锅图"设计方案 · 同一份数据 · 哪个最杀？</p>
+</div>
+
+<!-- ==================== 方案1: 膨胀对比条 ==================== -->
+<div class="prototype proto-1">
+  <span class="proto-label">方案 A</span>
+  <div class="proto-title">膨胀对比条</div>
+  <div class="proto-desc">一眼看出"从多短膨胀到多长"，每段延期都有名字</div>
+
+  <div class="expand-chart">
+    <div class="expand-row">
+      <div class="expand-label">原始计划</div>
+      <div class="expand-bar-wrap">
+        <div class="expand-bar expand-bar-original">
+          <span class="bar-days">15 天</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="expand-row" style="margin-top: 28px;">
+      <div class="expand-label">实际工期</div>
+      <div class="expand-bar-wrap">
+        <div class="expand-bar expand-bar-current">
+          <div class="bar-segment seg-original">
+            <span>原计划 15天</span>
+          </div>
+          <div class="bar-segment seg-change1" style="position:relative;">
+            <span>+4天</span>
+            <div class="change-pin pin-red" style="left: 50%; transform: translateX(-50%);">
+              3.8 产品改范围
+            </div>
+          </div>
+          <div class="bar-segment seg-change2" style="position:relative;">
+            <span>+2天</span>
+            <div class="change-pin pin-orange" style="left: 50%; transform: translateX(-50%);">
+              3.12 UI 重做
+            </div>
+          </div>
+          <div class="bar-segment seg-change3" style="position:relative;">
+            <span>+3天</span>
+            <div class="change-pin pin-red" style="left: 50%; transform: translateX(-50%);">
+              3.18 老板加功能
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <div class="expand-summary">
+    <div>
+      <div class="verdict">延期 9 天 = 100% 来自需求变更</div>
+      <div class="detail">3 次变更 · 涉及 2 位需求方 · 原计划 3.15 交付 → 现 3.24</div>
+    </div>
+  </div>
+
+  <div class="eval">
+    <div class="eval-row"><span class="eval-label">直观性</span><span class="eval-value eval-good">★★★★★ 最直观</span></div>
+    <div class="eval-row"><span class="eval-label">信息密度</span><span class="eval-value eval-mid">★★★☆☆ 中等</span></div>
+    <div class="eval-row"><span class="eval-label">复杂需求支持</span><span class="eval-value eval-bad">★★☆☆☆ 弱（单需求线）</span></div>
+    <div class="eval-row"><span class="eval-label">冲击力</span><span class="eval-value eval-good">★★★★★ 一眼看懂</span></div>
+    <div class="eval-row"><span class="eval-label">适合场景</span><span class="eval-value">单项目 / 单迭代 / 简洁直击</span></div>
+  </div>
+</div>
+
+<!-- ==================== 方案2: 瀑布堆叠图 ==================== -->
+<div class="prototype proto-2">
+  <span class="proto-label">方案 B</span>
+  <div class="proto-title">瀑布堆叠图</div>
+  <div class="proto-desc">像财报一样，看每个"加法"怎么把工期堆上去的</div>
+
+  <div class="waterfall">
+    <div class="waterfall-col">
+      <div class="wf-block wf-base" style="height: 120px;">
+        <span>15天</span>
+        <span class="wf-days">原计划</span>
+      </div>
+      <div class="wf-label">原始<br>计划</div>
+    </div>
+
+    <div class="wf-arrow">→</div>
+
+    <div class="waterfall-col">
+      <div class="wf-block wf-add" style="height: 32px;">
+        <span>+4天</span>
+      </div>
+      <div class="wf-block wf-base" style="height: 120px; border-radius: 0;">
+      </div>
+      <div class="wf-label">3.8<br>改范围<br><span style="color:#fca5a5">产品经理</span></div>
+    </div>
+
+    <div class="wf-arrow">→</div>
+
+    <div class="waterfall-col">
+      <div class="wf-block wf-add" style="height: 16px;">
+        <span style="font-size:10px">+2天</span>
+      </div>
+      <div class="wf-block" style="height: 32px; background: rgba(239,68,68,0.3);"></div>
+      <div class="wf-block wf-base" style="height: 120px; border-radius: 0;">
+      </div>
+      <div class="wf-label">3.12<br>UI重做<br><span style="color:#fca5a5">产品经理</span></div>
+    </div>
+
+    <div class="wf-arrow">→</div>
+
+    <div class="waterfall-col">
+      <div class="wf-block wf-new" style="height: 24px;">
+        <span style="font-size:10px">+3天</span>
+      </div>
+      <div class="wf-block" style="height: 48px; background: rgba(239,68,68,0.3);"></div>
+      <div class="wf-block wf-base" style="height: 120px; border-radius: 0;">
+      </div>
+      <div class="wf-label">3.18<br>加功能<br><span style="color:#fdba74">老板</span></div>
+    </div>
+
+    <div class="wf-arrow">=</div>
+
+    <div class="waterfall-col">
+      <div class="wf-block" style="height: 72px; background: linear-gradient(180deg, #ef4444, #dc2626); border-radius: 6px 6px 0 0;">
+        <span style="font-size: 14px; font-weight: 800;">+9天</span>
+        <span class="wf-days">变更总计</span>
+      </div>
+      <div class="wf-block wf-base" style="height: 120px; border-radius: 0 0 6px 6px;">
+        <span>15天</span>
+      </div>
+      <div class="wf-label" style="font-weight:700; color: #fca5a5;">共 24天</div>
+    </div>
+  </div>
+
+  <div class="waterfall-legend">
+    <div class="legend-item"><div class="legend-dot" style="background:#2563eb;"></div>原始工期</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#ef4444;"></div>产品经理变更</div>
+    <div class="legend-item"><div class="legend-dot" style="background:#f97316;"></div>老板变更</div>
+  </div>
+
+  <div class="waterfall-summary">
+    <div class="big-number">+60%</div>
+    <div class="big-label">工期膨胀率 · 9 天延期 · 0 天来自开发</div>
+  </div>
+
+  <div class="eval">
+    <div class="eval-row"><span class="eval-label">直观性</span><span class="eval-value eval-good">★★★★☆ 很直观</span></div>
+    <div class="eval-row"><span class="eval-label">信息密度</span><span class="eval-value eval-good">★★★★★ 高</span></div>
+    <div class="eval-row"><span class="eval-label">复杂需求支持</span><span class="eval-value eval-mid">★★★☆☆ 中等</span></div>
+    <div class="eval-row"><span class="eval-label">冲击力</span><span class="eval-value eval-good">★★★★★ +60% 很震撼</span></div>
+    <div class="eval-row"><span class="eval-label">适合场景</span><span class="eval-value">复盘会 / 月报 / 正式场合</span></div>
+  </div>
+</div>
+
+<!-- ==================== 方案3: 时间线故事 ==================== -->
+<div class="prototype proto-3">
+  <span class="proto-label">方案 C</span>
+  <div class="proto-title">时间线故事 + 甘特条</div>
+  <div class="proto-desc">像 Git log 一样，每次变更都是一个 commit，底部附甘特条对比</div>
+
+  <div class="timeline">
+    <div class="tl-node tl-start">
+      <div class="tl-dot"></div>
+      <div class="tl-date">3 月 1 日</div>
+      <div class="tl-title">项目立项 · 计划 15 天交付</div>
+      <div class="tl-detail">
+        需求A（用户管理 8天）+ 需求B（数据面板 4天）+ 需求C（导出功能 3天）
+      </div>
+    </div>
+
+    <div class="tl-node tl-change">
+      <div class="tl-dot"></div>
+      <div class="tl-date">3 月 8 日 · 产品经理</div>
+      <div class="tl-title">需求A 范围扩大</div>
+      <div class="tl-detail">
+        "用户管理加上角色权限体系" — 新增 RBAC 模块、权限配置页、角色管理接口
+      </div>
+      <div class="tl-impact">工期 +4 天 · 交付日 3.15 → 3.19</div>
+    </div>
+
+    <div class="tl-node tl-change">
+      <div class="tl-dot"></div>
+      <div class="tl-date">3 月 12 日 · 产品经理</div>
+      <div class="tl-title">需求B UI 推翻重做</div>
+      <div class="tl-detail">
+        "面板不好看，参考 xx 竞品重新设计" — 已完成的前端页面全部废弃重写
+      </div>
+      <div class="tl-impact">工期 +2 天 · 交付日 3.19 → 3.21</div>
+    </div>
+
+    <div class="tl-node tl-change">
+      <div class="tl-dot"></div>
+      <div class="tl-date">3 月 18 日 · 老板</div>
+      <div class="tl-title">新增需求D：数据大屏</div>
+      <div class="tl-detail">
+        "客户下周来参观，加个大屏展示" — 全新模块，含实时数据、动画图表、全屏适配
+      </div>
+      <div class="tl-impact">工期 +3 天 · 交付日 3.21 → 3.24</div>
+    </div>
+  </div>
+
+  <!-- 底部甘特条 -->
+  <div class="tl-gantt">
+    <div class="tl-gantt-title">需求工期对比</div>
+
+    <div class="tl-gantt-row">
+      <div class="tl-gantt-label">需求A</div>
+      <div class="tl-gantt-track">
+        <div class="tl-gantt-fill extended" style="width: 80%;">
+          用户管理 8天 → 12天（<span style="color:#fca5a5">+4天</span>）
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-gantt-row">
+      <div class="tl-gantt-label">需求B</div>
+      <div class="tl-gantt-track">
+        <div class="tl-gantt-fill extended" style="width: 40%;">
+          数据面板 4天 → 6天（<span style="color:#fca5a5">+2天</span>）
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-gantt-row">
+      <div class="tl-gantt-label">需求C</div>
+      <div class="tl-gantt-track">
+        <div class="tl-gantt-fill original" style="width: 20%;">
+          导出 3天（无变更）
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-gantt-row">
+      <div class="tl-gantt-label" style="color: #f97316;">需求D 🆕</div>
+      <div class="tl-gantt-track">
+        <div class="tl-gantt-fill new-req" style="width: 20%;">
+          数据大屏 3天（新增）
+        </div>
+      </div>
+    </div>
+
+    <div class="tl-gantt-total">
+      <div class="left">
+        原计划 15天 → 实际 24天
+      </div>
+      <div class="right">
+        延期 9 天 · 0 天来自开发
+      </div>
+    </div>
+  </div>
+
+  <div class="eval">
+    <div class="eval-row"><span class="eval-label">直观性</span><span class="eval-value eval-good">★★★★☆ 直观</span></div>
+    <div class="eval-row"><span class="eval-label">信息密度</span><span class="eval-value eval-good">★★★★★ 最高</span></div>
+    <div class="eval-row"><span class="eval-label">复杂需求支持</span><span class="eval-value eval-good">★★★★★ 强（多需求+时间线）</span></div>
+    <div class="eval-row"><span class="eval-label">冲击力</span><span class="eval-value eval-mid">★★★★☆ 叙事感强但需要看</span></div>
+    <div class="eval-row"><span class="eval-label">适合场景</span><span class="eval-value">多需求并行 / 完整证据链 / 正式对质</span></div>
+  </div>
+</div>
+
+<!-- ==================== 我的推荐 ==================== -->
+<div class="vote-section">
+  <h2 style="color: #fff;">我的推荐：A + C 组合</h2>
+  <p>日常发群用 A（3秒看懂），正式对质用 C（完整证据链）</p>
+
+  <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 16px; text-align: left; max-width: 600px; margin: 0 auto;">
+    <div style="padding: 20px; background: rgba(59,130,246,0.08); border: 1px solid rgba(59,130,246,0.2); border-radius: 12px;">
+      <div style="font-size: 15px; font-weight: 700; color: #60a5fa; margin-bottom: 8px;">A · 膨胀条</div>
+      <div style="font-size: 13px; color: #888; line-height: 1.6;">
+        → 日常甩锅<br>
+        → 群里发图<br>
+        → 3 秒让老板闭嘴
+      </div>
+    </div>
+    <div style="padding: 20px; background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.2); border-radius: 12px;">
+      <div style="font-size: 15px; font-weight: 700; color: #34d399; margin-bottom: 8px;">C · 时间线故事</div>
+      <div style="font-size: 13px; color: #888; line-height: 1.6;">
+        → 复盘/对质<br>
+        → 多需求并行<br>
+        → 完整证据链
+      </div>
+    </div>
+  </div>
+
+  <div style="margin-top: 24px; padding: 16px; background: rgba(245,158,11,0.08); border: 1px solid rgba(245,158,11,0.2); border-radius: 12px; max-width: 600px; margin-left: auto; margin-right: auto;">
+    <div style="font-size: 14px; color: #fbbf24; font-weight: 600; margin-bottom: 4px;">B · 瀑布图的位置？</div>
+    <div style="font-size: 13px; color: #888;">适合做"统计面板"里的一个组件 — 长期追踪用，不适合单次发群</div>
+  </div>
+</div>
+
+</body>
+</html>

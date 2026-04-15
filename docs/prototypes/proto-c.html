@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8">
+<style>
+  * { margin: 0; padding: 0; box-sizing: border-box; }
+  body {
+    font-family: -apple-system, 'SF Pro Display', 'PingFang SC', 'Microsoft YaHei', sans-serif;
+    background: #0a0a0f;
+    color: #e0e0e0;
+    padding: 48px 52px;
+    width: 900px;
+  }
+  .header {
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    margin-bottom: 10px;
+  }
+  .badge {
+    display: inline-block;
+    padding: 5px 16px;
+    border-radius: 20px;
+    font-size: 14px;
+    font-weight: 700;
+    background: rgba(16,185,129,0.18);
+    color: #34d399;
+  }
+  h1 {
+    font-size: 28px;
+    font-weight: 700;
+    color: #fff;
+  }
+  .desc {
+    color: #666;
+    font-size: 15px;
+    margin-bottom: 36px;
+    padding-left: 2px;
+  }
+
+  .timeline {
+    position: relative;
+    padding-left: 44px;
+    margin-bottom: 32px;
+  }
+  .timeline::before {
+    content: '';
+    position: absolute;
+    left: 19px;
+    top: 0;
+    bottom: 0;
+    width: 2px;
+    background: linear-gradient(180deg, #2563eb 0%, #ef4444 40%, #ef4444 80%, #10b981 100%);
+  }
+  .tl-node {
+    position: relative;
+    margin-bottom: 20px;
+    padding: 14px 18px;
+    border-radius: 12px;
+    border: 1px solid #2a2a3a;
+  }
+  .tl-node.start {
+    border-color: rgba(37,99,235,0.35);
+    background: rgba(37,99,235,0.06);
+  }
+  .tl-node.change {
+    border-color: rgba(239,68,68,0.35);
+    background: rgba(239,68,68,0.05);
+  }
+  .tl-dot {
+    position: absolute;
+    left: -33px;
+    top: 18px;
+    width: 12px;
+    height: 12px;
+    border-radius: 50%;
+    border: 2px solid #0a0a0f;
+  }
+  .start .tl-dot { background: #3b82f6; }
+  .change .tl-dot { background: #ef4444; }
+
+  .tl-date {
+    font-size: 12px;
+    color: #555;
+    margin-bottom: 3px;
+  }
+  .tl-title {
+    font-size: 15px;
+    font-weight: 700;
+    margin-bottom: 4px;
+  }
+  .start .tl-title { color: #93c5fd; }
+  .change .tl-title { color: #fca5a5; }
+  .tl-detail {
+    font-size: 13px;
+    color: #777;
+    line-height: 1.5;
+  }
+  .tl-impact {
+    display: inline-block;
+    margin-top: 8px;
+    padding: 3px 12px;
+    border-radius: 6px;
+    font-size: 12px;
+    font-weight: 700;
+    background: rgba(239,68,68,0.15);
+    color: #fca5a5;
+  }
+
+  /* 甘特条 */
+  .gantt {
+    padding: 20px 22px;
+    background: #12121a;
+    border-radius: 14px;
+    border: 1px solid #1e1e2e;
+  }
+  .gantt-title {
+    font-size: 14px;
+    color: #555;
+    margin-bottom: 16px;
+    font-weight: 700;
+  }
+  .gantt-row {
+    display: flex;
+    align-items: center;
+    margin-bottom: 10px;
+  }
+  .gantt-label {
+    width: 80px;
+    font-size: 13px;
+    color: #888;
+    flex-shrink: 0;
+  }
+  .gantt-track {
+    flex: 1;
+    height: 30px;
+    background: #0a0a0f;
+    border-radius: 6px;
+    position: relative;
+    overflow: hidden;
+  }
+  .gantt-fill {
+    height: 100%;
+    border-radius: 6px;
+    display: flex;
+    align-items: center;
+    padding-left: 10px;
+    font-size: 11px;
+    font-weight: 600;
+    color: rgba(255,255,255,0.85);
+  }
+  .gf-orig {
+    background: linear-gradient(90deg, #1e3a5f, #2563eb);
+  }
+  .gf-extended {
+    background: linear-gradient(90deg, #1e3a5f, #2563eb 55%, #ef4444 55%, #ef4444);
+  }
+  .gf-new {
+    background: linear-gradient(90deg, #ea580c, #f97316);
+  }
+
+  .gantt-total {
+    margin-top: 14px;
+    padding-top: 12px;
+    border-top: 1px solid #1e1e2e;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+  }
+  .gantt-total .left {
+    font-size: 14px;
+    color: #888;
+  }
+  .gantt-total .right {
+    font-size: 18px;
+    font-weight: 800;
+    color: #fca5a5;
+  }
+
+  .tag-row {
+    margin-top: 24px;
+    display: flex;
+    gap: 10px;
+    flex-wrap: wrap;
+  }
+  .tag {
+    padding: 5px 14px;
+    border-radius: 8px;
+    font-size: 12px;
+    font-weight: 600;
+    background: rgba(16,185,129,0.1);
+    color: #34d399;
+    border: 1px solid rgba(16,185,129,0.15);
+  }
+
+  .watermark {
+    margin-top: 28px;
+    text-align: right;
+    font-size: 12px;
+    color: #333;
+  }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <span class="badge">方案 C</span>
+  <h1>时间线故事 + 甘特条</h1>
+</div>
+<div class="desc">像 Git log，每次变更是一条记录，底部甘特条对比多需求工期</div>
+
+<div class="timeline">
+  <div class="tl-node start">
+    <div class="tl-dot"></div>
+    <div class="tl-date">3 月 1 日</div>
+    <div class="tl-title">项目立项 · 计划 15 天交付</div>
+    <div class="tl-detail">需求A（用户管理 8天）+ 需求B（数据面板 4天）+ 需求C（导出 3天）</div>
+  </div>
+
+  <div class="tl-node change">
+    <div class="tl-dot"></div>
+    <div class="tl-date">3 月 8 日 · 产品经理</div>
+    <div class="tl-title">需求A 范围扩大</div>
+    <div class="tl-detail">"用户管理加上角色权限体系" — 新增 RBAC 模块、权限配置页</div>
+    <div class="tl-impact">工期 +4 天 · 交付日 3.15 → 3.19</div>
+  </div>
+
+  <div class="tl-node change">
+    <div class="tl-dot"></div>
+    <div class="tl-date">3 月 12 日 · 产品经理</div>
+    <div class="tl-title">需求B UI 推翻重做</div>
+    <div class="tl-detail">"参考竞品重新设计" — 已完成前端页面废弃重写</div>
+    <div class="tl-impact">工期 +2 天 · 交付日 3.19 → 3.21</div>
+  </div>
+
+  <div class="tl-node change">
+    <div class="tl-dot"></div>
+    <div class="tl-date">3 月 18 日 · 老板</div>
+    <div class="tl-title">新增需求D：数据大屏</div>
+    <div class="tl-detail">"客户下周参观，加个大屏" — 全新模块含实时数据、动画图表</div>
+    <div class="tl-impact">工期 +3 天 · 交付日 3.21 → 3.24</div>
+  </div>
+</div>
+
+<div class="gantt">
+  <div class="gantt-title">需求工期对比</div>
+
+  <div class="gantt-row">
+    <div class="gantt-label">需求A</div>
+    <div class="gantt-track">
+      <div class="gantt-fill gf-extended" style="width: 75%;">用户管理 8天 → 12天（+4天）</div>
+    </div>
+  </div>
+
+  <div class="gantt-row">
+    <div class="gantt-label">需求B</div>
+    <div class="gantt-track">
+      <div class="gantt-fill gf-extended" style="width: 38%;">数据面板 4天 → 6天（+2天）</div>
+    </div>
+  </div>
+
+  <div class="gantt-row">
+    <div class="gantt-label">需求C</div>
+    <div class="gantt-track">
+      <div class="gantt-fill gf-orig" style="width: 19%;">导出 3天</div>
+    </div>
+  </div>
+
+  <div class="gantt-row">
+    <div class="gantt-label" style="color: #f97316;">需求D 🆕</div>
+    <div class="gantt-track">
+      <div class="gantt-fill gf-new" style="width: 19%;">大屏 3天（新增）</div>
+    </div>
+  </div>
+
+  <div class="gantt-total">
+    <div class="left">原计划 15天 → 实际 24天</div>
+    <div class="right">延期 9 天 · 0 天来自开发</div>
+  </div>
+</div>
+
+<div class="tag-row">
+  <span class="tag">信息密度 ★★★★★</span>
+  <span class="tag">多需求并行 ★★★★★</span>
+  <span class="tag">完整证据链</span>
+  <span class="tag">适合正式对质</span>
+</div>
+
+<div class="watermark">工期保险箱 · Scope Shield</div>
+
+</body>
+</html>
