@@ -1131,3 +1131,317 @@ And 不触发 snapshot replay
 And 图表颜色按新角色重新着色（领导=橙色）
 And X 的 currentDays 仍为 8（不变）
 ```
+
+---
+
+## 需求补充（Supplement）
+
+### AC-130: 记录变更 — 需求补充（基本流程）
+
+```
+Given 项目有需求"用户管理(8天)"（active 状态）
+When 点击"记录变更"
+And 选择类型"需求补充"
+And 选择需求"用户管理"
+And 选择补充子类型"功能补充"
+And 天数填"2"
+And 角色保持默认"产品经理"，填人名"张三"
+And 描述填"要支持LDAP登录"
+And 点击保存
+Then 需求"用户管理"currentDays 变为 10 天
+And 变更记录列表新增一条，类型显示"需求补充"
+And 变更记录显示补充子类型"功能补充"
+And 图表实时更新
+And 从点击"记录变更"到保存完成 ≤ 30 秒（3步快速模式）
+```
+
+### AC-131: 需求补充 — 3 种子类型
+
+```
+Given 用户正在记录需求补充变更
+When 选择补充子类型
+Then 下拉显示 3 个选项：
+  功能补充（feature_addition）
+  条件变更（condition_change）
+  细节细化（detail_refinement）
+And 子类型为必选项（不选择则阻止保存）
+
+Given 记录了 3 条补充变更，分别使用 3 种子类型
+When 查看详细版时间线
+Then 每条补充事件标注子类型名称（如"补充·条件变更"）
+```
+
+### AC-132: 需求补充 — daysDelta=0 允许
+
+```
+Given 项目有需求"用户管理(8天)"
+When 记录需求补充变更，天数填"0"，描述"登录页要加验证码（不影响工时）"
+Then 保存成功
+And 需求"用户管理"currentDays 仍为 8 天（不变）
+And 变更记录创建成功，daysDelta = 0
+And 统计卡片"变更次数"增加 1
+And 统计卡片"补充次数"增加 1
+And 简洁版图表膨胀条中不渲染该变更段（daysDelta=0）
+And 详细版时间线中显示该变更事件
+```
+
+### AC-133: 需求补充 — 不受需求状态限制
+
+```
+Given 项目有需求 A(active)、B(paused)、C(cancelled)
+When 记录需求补充变更
+Then 需求下拉列表显示 A、B、C 三个需求（所有状态均可选）
+
+When 选择 paused 状态的需求 B，天数填"1"，描述"增加了审批流程"
+Then 保存成功，B 的 currentDays 增加 1
+And B 状态仍为 paused（不因 supplement 改变状态）
+
+When 选择 cancelled 状态的需求 C，天数填"0.5"，描述"方案变更"
+Then 保存成功，C 的 currentDays 增加 0.5
+And C 状态仍为 cancelled（不因 supplement 改变状态）
+```
+
+### AC-134: 需求补充 — 级联自动继承
+
+```
+Given 需求 A(8天) → B(4天) 有依赖
+When 记录需求补充变更，选择需求 A，天数填"2"
+Then A 的 currentDays 变为 10
+And B 因依赖自动顺延（调度器重算）
+And 变更记录 metadata.cascadeTargets 包含 B 的 ID
+And 总工期 = 10 + 4 = 14 天
+```
+
+### AC-135: 需求补充 — 简洁版图表渲染
+
+```
+Given 项目有需求 A(8天)，变更1: PM +3天(红)，变更2: 补充 +2天(玫瑰红)
+When 查看简洁版图表
+Then 膨胀条中：蓝色8天 + 红色3天(PM) + 玫瑰红2天(补充)
+And 补充段使用固定玫瑰红色 #E11D48（不按角色着色）
+And 段标注显示"补充 +2天"
+```
+
+### AC-136: 需求补充 — 详细版甘特虚线段
+
+```
+Given 项目有需求 A(8天)，有补充变更 +2天
+When 查看详细版甘特
+Then A 行显示：蓝色8天（实线） + 虚线边框 + 玫瑰红浅色填充2天（#E11D48 opacity 20%）
+And 补充段与 add_days 的实线段视觉明显区分
+And daysDelta=0 的补充变更不在甘特条中渲染段
+```
+
+### AC-137: 需求补充 — 详细版时间线
+
+```
+Given 项目有补充变更：PM 张三对"用户管理"补充 +1.5天，子类型"条件变更"
+When 查看详细版时间线
+Then 显示事件："04/10 PM 张三：用户管理要支持LDAP +1.5天（补充·条件变更）"
+And 事件中包含补充子类型名称
+```
+
+### AC-138: 统计卡片 — 补充次数
+
+```
+Given 项目有 5 条变更记录，其中 3 条为 supplement 类型（含 1 条 daysDelta=0 的）
+When 查看项目头部统计卡片
+Then 显示 5 个统计卡片：原始工期、当前工期、膨胀率、变更次数、补充次数
+And "补充次数"卡片显示"3 次"（包含 daysDelta=0 的记录）
+```
+
+### AC-139: 需求补充 — 颜色与其他类型区分
+
+```
+Given 项目有变更"PM +3天"(红)、"QA +2天"(紫)、"补充 +1天"(玫瑰红)、"新增需求 D(3天)"(靛色)
+When 查看简洁版图表
+Then PM段为红色(#DC2626)
+And QA段为紫色(#7C3AED)
+And 补充段为玫瑰红(#E11D48)
+And 新增需求段为靛色(#5B21B6)
+And 四种颜色可明显区分
+
+When 查看导出版图表
+Then 补充段使用导出版玫瑰红 #E11D48（App 和导出共用同一色值）
+```
+
+### AC-140: 需求补充 — replay 中不受状态限制
+
+```
+Given 需求 A(8天)，有变更序列：
+  1. "砍掉 A"（cancel_requirement）
+  2. "补充 A +1天"（supplement, daysDelta=1）
+When replay 执行
+Then 变更 1: cancel → status=cancelled, currentDays=8
+And 变更 2: supplement → currentDays=9（supplement 不受 status 限制，正常应用）
+And A 最终 currentDays = 9, status = cancelled
+```
+
+### AC-141: 需求补充 — 编辑变更弹窗
+
+```
+Given 存在补充变更记录"用户管理要支持LDAP +1.5天"
+When 点击编辑按钮
+Then 弹窗标题为"编辑变更"
+And type 按钮显示"需求补充"已选中
+And 补充子类型下拉显示当前值"条件变更"
+And 天数输入框显示 1.5
+And 描述字段显示"用户管理要支持LDAP"
+And 所有字段均可编辑
+
+When 修改天数从 1.5 改为 2.5
+And 修改子类型从"条件变更"改为"功能补充"
+Then 触发 snapshot replay 重算
+And 需求 currentDays 按新天数重算
+```
+
+### AC-142: 编辑变更 — 类型改为 supplement
+
+```
+Given 存在变更记录"A +3天"（type=add_days, target=A）
+When 编辑该记录，将 type 改为 supplement
+Then 动态字段联动：
+  显示补充子类型下拉（3选1，必选）
+  显示 daysDelta 输入框（允许0，支持0.5粒度）
+  描述字段变为必填
+And target 下拉刷新为所有状态需求（active + paused + cancelled）
+When 选择子类型、填写天数和描述后保存
+Then 触发 replay 重算
+```
+
+### AC-143: 需求补充 — 归因区分（add_days vs supplement）
+
+```
+Given 项目有变更"A +3天"（add_days, PM）和"A +2天"（supplement, PM）
+When 查看简洁版图表
+Then add_days 段按角色着色（PM=红色）
+And supplement 段使用固定玫瑰红（#E11D48），不按角色着色
+And 两种变更在图表中视觉明显区分
+
+When 查看底部总结
+Then 第二行角色统计中：add_days 按 PM 计入；supplement daysDelta>0 也按 PM 计入
+And "5 次变更 · 产品经理×2 · ..."
+```
+
+### AC-144: 需求补充 — 底部总结中 daysDelta=0 不计入角色统计
+
+```
+Given 项目有 3 条变更：
+  1. PM +3天（add_days）
+  2. PM 补充 +0天（supplement, daysDelta=0）
+  3. 领导 补充 +2天（supplement, daysDelta=2）
+When 查看简洁版图表底部总结
+Then 第二行："3 次变更 · 产品经理×1 · 领导×1"
+And totalChanges=3（含 daysDelta=0 的），角色统计排除 daysDelta=0 的变更
+And 补充次数卡片显示"2 次"（2 条 supplement）
+```
+
+---
+
+## 0.5 天粒度
+
+### AC-150: 需求天数 — 0.5 步进验证
+
+```
+Given 用户正在添加需求
+When 天数输入 0.5
+Then 保存成功（最小值 0.5）
+When 天数输入 1.5
+Then 保存成功（0.5 步进）
+When 天数输入 0.3
+Then 输入框红色高亮，提示"请输入有效天数（最小 0.5，支持 0.5 步进）"
+When 天数输入 0
+Then 输入框红色高亮，提示"请输入有效天数（最小 0.5）"
+```
+
+### AC-151: 变更天数 — add_days ≥ 0.5
+
+```
+Given 用户正在记录 add_days 变更
+When 天数输入 0.5
+Then 保存成功
+When 天数输入 0
+Then 输入框红色高亮，提示"增加天数最小 0.5"
+And 保存被阻止
+```
+
+### AC-152: 补充天数 — ≥ 0 且支持 0.5 步进
+
+```
+Given 用户正在记录 supplement 变更
+When 天数输入 0
+Then 保存成功（supplement 允许 0）
+When 天数输入 0.5
+Then 保存成功
+When 天数输入 1.5
+Then 保存成功
+When 天数输入 0.3
+Then 输入框红色高亮，提示"请输入有效天数（允许 0，支持 0.5 步进）"
+And 保存被阻止
+When 天数输入 -1
+Then 输入框红色高亮，提示"天数不能为负数"
+And 保存被阻止
+```
+
+### AC-153: 暂停剩余天数 — ≥ 0.5
+
+```
+Given 需求 A(8天)
+When 记录暂停变更，剩余天数输入 0.5
+Then 保存成功，pausedRemainingDays = 0.5
+When 剩余天数输入 0
+Then 输入框红色高亮，提示"剩余天数须在 0.5~8 之间"
+And 保存被阻止
+```
+
+### AC-154: JSON 导入 — supplement 枚举值验证
+
+```
+Given 导入的 JSON 中某条 change.type = "supplement"
+And change.metadata.subType = "feature_addition"
+And change.daysDelta = 0
+When 导入
+Then 导入成功
+
+Given 导入的 JSON 中某条 change.type = "supplement"
+And change.metadata.subType = "invalid_subtype"
+When 导入
+Then 显示错误提示"文件包含非法数据"
+And 现有数据不受影响（事务回滚）
+```
+
+### AC-155: 编辑变更 — 可选类型包含 supplement
+
+```
+Given 存在变更记录"A +3天"（type=add_days）
+When 编辑该记录
+Then type 下拉选项包含：加天数、砍需求、需求补充、调优先级、暂停、恢复
+And 不包含"新增需求"（new_requirement）
+And 选择"需求补充"后显示对应动态字段
+```
+
+### AC-156: replay 中 supplement daysDelta=0 不改变 currentDays
+
+```
+Given 需求 A(5天)，有变更序列：
+  1. "A +3天"（add_days）
+  2. "A 补充 +0天"（supplement, daysDelta=0）
+  3. "A +2天"（add_days）
+When replay 执行
+Then 变更 1: currentDays = 5+3 = 8
+And 变更 2: daysDelta=0, currentDays 仍为 8（不变）
+And 变更 3: currentDays = 8+2 = 10
+And A 最终 currentDays = 10
+```
+
+### AC-157: 需求补充 — 3步快速模式验证
+
+```
+Given 用户点击"记录变更" → 选择"需求补充"
+Then 核心交互为 3 步：
+  Step 1: 选择需求（下拉，所有状态可选）
+  Step 2: 填写描述（必填）
+  Step 3: 填天数（≥0，默认可为0或空）+ 选子类型（3选1，必选）
+And 角色默认"产品经理"，日期默认今天（多数情况不需改）
+And 整体操作 ≤ 30 秒
+```

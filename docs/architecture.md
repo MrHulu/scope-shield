@@ -290,6 +290,7 @@ interface ChangeStore {
 - new_requirement → 创建新需求 (isAddedByChange=true) + 记录变更
 - cancel_requirement → 目标需求 status = "cancelled"（currentDays 保留取消前的值，不置零），daysDelta = -currentDays，metadata 自动回写 { cancelledRequirementName: 目标需求名, cancelledDays: currentDays }
 - reprioritize → 调整 sortOrder（不影响工期），daysDelta = 0
+- supplement → currentDays += daysDelta（**不受 status 限制**——active/paused/cancelled 需求均可应用）。daysDelta=0 时仅记录变更事实，不改变 currentDays。若目标需求有依赖者且 metadata.cascadeTargets 存在，级联更新依赖需求的 currentDays。metadata 自动回写 { subType, cascadeTargets? }
 - pause → 目标需求 status = "paused", 用户输入 pausedRemainingDays
 - resume → 目标需求 status = "active", currentDays = pausedRemainingDays, daysDelta = 0
 ```
@@ -309,7 +310,8 @@ interface ChangeStore {
    - new_requirement → 创建新需求（isAddedByChange=true，**复用原需求 ID**），daysDelta = 新需求天数
    - cancel_requirement → 若 status ≠ "active" 则跳过（仅 active 需求可取消——已取消不重复取消，已暂停需先恢复再取消）；否则 status=cancelled（currentDays 保留取消前的值，不置零），daysDelta 重算为 -currentDays（取消时的当前值），metadata 回写 cancelledRequirementName + cancelledDays
    - reprioritize → 更新 sortOrder，daysDelta=0
-   - pause → 若 status ≠ "active" 则跳过；否则 status=paused，pausedRemainingDays=max(1, min(metadata.remainingDays ?? currentDays, currentDays))
+   - supplement → currentDays += daysDelta（**不受 status 限制**——active/paused/cancelled 均可应用，记录的是"需求范围变更的事实"）。daysDelta=0 时仅记录变更事实，不改变 currentDays。若 metadata.cascadeTargets 存在，级联更新依赖需求的 currentDays
+   - pause → 若 status ≠ "active" 则跳过；否则 status=paused，pausedRemainingDays=max(0.5, min(metadata.remainingDays ?? currentDays, currentDays))（clamp：≥0.5 且 ≤ currentDays）
    - resume → 若 status ≠ "paused" 则跳过；否则 status=active，currentDays=pausedRemainingDays，pausedRemainingDays=null，daysDelta=0
 5. 更新所有 Change 记录的 daysDelta（cancel 类型会因前序变更不同而变化）
 6. 调用 scheduler 计算总工期
@@ -441,8 +443,9 @@ const stores = {
 | 节省(砍需求) | #059669 | #34C759 |
 | 原始计划 | #2563EB | #007AFF |
 | 新增需求(new_requirement) | #5B21B6 | #5856D6 |
+| 需求补充(supplement) | #E11D48 | #E11D48 |
 
-**颜色规则**：变更段默认按角色着色。**例外**：`new_requirement` 类型段始终使用靛色（不按角色），确保与 QA 紫色视觉区分。**甘特混合着色**：`isAddedByChange=true` 的需求在详细版甘特中，原始天数部分整条靛色；若该需求后续有 `add_days` 变更，变更段仍按角色着色（不用靛色），仅原始天数部分为靛色。
+**颜色规则**：变更段默认按角色着色。**例外**：`new_requirement` 类型段始终使用靛色（不按角色），确保与 QA 紫色视觉区分；`supplement` 类型段始终使用玫瑰红 #E11D48（不按角色），与所有角色颜色区分。**甘特混合着色**：`isAddedByChange=true` 的需求在详细版甘特中，原始天数部分整条靛色；若该需求后续有 `add_days` 变更，变更段仍按角色着色（不用靛色），仅原始天数部分为靛色。**supplement 甘特渲染**：详细版甘特中 supplement 段使用虚线边框 + 玫瑰红浅色填充（区别于实线的 add_days 段）。
 
 **导入时数据规模校验**：JSON 导入流程（`dataService.ts`）在写入 IndexedDB 前校验单项目需求数 ≤ 50、变更数 ≤ 200，超出则拒绝导入并回滚。
 
@@ -554,7 +557,7 @@ const DEMO_PROJECT = {
   status: 'active',
   isDemo: true,
   requirements: [
-    { id: 'req-001', name: '用户管理模块', originalDays: 8, currentDays: 12, isAddedByChange: false, dependsOn: null, status: 'active', sortOrder: 0 },
+    { id: 'req-001', name: '用户管理模块', originalDays: 8, currentDays: 13.5, isAddedByChange: false, dependsOn: null, status: 'active', sortOrder: 0 },
     { id: 'req-002', name: '订单系统', originalDays: 10, currentDays: 10, isAddedByChange: false, dependsOn: 'req-001', status: 'active', sortOrder: 1 },
     { id: 'req-003', name: '报表导出', originalDays: 5, currentDays: 5, isAddedByChange: false, dependsOn: null, status: 'cancelled', sortOrder: 2 },  // cancelled 保留 currentDays 原值，靠 status 排除出调度
     { id: 'req-004', name: '数据大屏', originalDays: 3, currentDays: 3, isAddedByChange: true, dependsOn: null, status: 'active', sortOrder: 3 },
@@ -567,14 +570,18 @@ const DEMO_PROJECT = {
     { type: 'cancel_requirement', targetRequirementId: 'req-003', description: 'MVP砍掉导出',
       role: 'pm', personName: '张三', daysDelta: -5, date: '2026-04-10',
       metadata: { cancelledRequirementName: '报表导出', cancelledDays: 5 } },
+    { type: 'supplement', targetRequirementId: 'req-001', description: '用户管理要支持LDAP对接',
+      role: 'pm', personName: '张三', daysDelta: 1.5, date: '2026-04-12',
+      metadata: { subType: 'condition_change' } },
   ]
   // Demo 展示要点：
   // - 含依赖关系（req-002 依赖 req-001）→ 总工期 = 12+10 = 22天
-  // - 含3种变更类型（加天数、新需求、砍需求）→ 图表丰富
+  // - 含4种变更类型（加天数、新需求、砍需求、需求补充）→ 图表丰富
   // - 含绿色"节省"段 → 展示砍需求效果
   // - originalTotalDays = max(8+10, 5) = 18天（req-001→002 串行 + req-003 并行）
-  // - currentTotalDays = max(12+10, 3) = 22天（req-003 已砍不计）
-  // - 膨胀率 = (22-18)/18 = +22%
+  // - currentTotalDays = max(13.5+10, 3) = 23.5天（req-001: 12+1.5=13.5，req-003 已砍不计）
+  // - 膨胀率 = (23.5-18)/18 = +31%
+  // - supplementCount = 1（supplement 变更展示"温水煮青蛙"指标）
 };
 ```
 
@@ -594,7 +601,7 @@ const DEMO_PROJECT = {
 ### 优先测试
 
 1. `scheduler.ts` — 最长路径算法正确性（核心）
-2. `changeProcessor.ts` — 6 种变更类型全覆盖
+2. `changeProcessor.ts` — 7 种变更类型全覆盖（含 supplement）
 3. `replayEngine.ts` — 删除/编辑变更后 replay 正确性
 4. `exportImport.ts` — JSON 导入验证 + 事务回滚
 5. `ChangeModal` — 30 秒流程可用性

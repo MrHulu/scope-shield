@@ -61,13 +61,13 @@ Change (N) ──→ (0..1) Requirement [targetRequirement]
 | id | string (UUID) | 是 | auto | 主键 |
 | projectId | string | 是 | — | 所属项目 ID（外键） |
 | name | string | 是 | — | 需求名称，≤ 200 字符 |
-| originalDays | number | 是 | — | 原始预估天数，≥ 1 |
+| originalDays | number | 是 | — | 原始预估天数，≥ 0.5（支持 0.5 天粒度：0.5, 1, 1.5, 2...） |
 | isAddedByChange | boolean | 是 | false | 是否由 new_requirement 变更创建（true 时不纳入 originalTotalDays） |
-| currentDays | number | 是 | = originalDays | 当前天数（变更后） |
+| currentDays | number | 是 | = originalDays | 当前天数（变更后），支持 0.5 天粒度 |
 | status | enum | 是 | "active" | "active" \| "paused" \| "cancelled" |
 | sortOrder | number | 是 | auto | 排序权重（优先级） |
 | dependsOn | string \| null | 否 | null | 依赖的需求 ID |
-| pausedRemainingDays | number \| null | 否 | null | 暂停时冻结的剩余天数，≥ 1 且 ≤ currentDays |
+| pausedRemainingDays | number \| null | 否 | null | 暂停时冻结的剩余天数，≥ 0.5 且 ≤ currentDays |
 | createdAt | string (ISO datetime) | 是 | auto | 创建时间 |
 | updatedAt | string (ISO datetime) | 是 | auto | 最后更新时间 |
 | _feishuTaskId | string \| null | 否 | null | V2 预留：飞书任务 ID |
@@ -83,12 +83,12 @@ Change (N) ──→ (0..1) Requirement [targetRequirement]
 |------|------|------|--------|------|
 | id | string (UUID) | 是 | auto | 主键 |
 | projectId | string | 是 | — | 所属项目 ID（外键） |
-| type | enum | 是 | — | "add_days" \| "new_requirement" \| "cancel_requirement" \| "reprioritize" \| "pause" \| "resume" |
+| type | enum | 是 | — | "add_days" \| "new_requirement" \| "cancel_requirement" \| "supplement" \| "reprioritize" \| "pause" \| "resume" |
 | targetRequirementId | string \| null | 否 | null | 关联需求 ID（新增需求时为新建的 ID） |
 | role | enum | 是 | "pm" | "pm" \| "leader" \| "qa" \| "other" |
 | personName | string \| null | 否 | null | 具体人名（可选） |
 | description | string | 是 | — | 变更描述，≤ 500 字符 |
-| daysDelta | number | 否 | 0 | 天数变化（正数增加，负数减少）。`add_days` 类型：必须为正整数（≥ 1），且应用后 currentDays ≥ 1。**MVP 不支持减少已有需求天数**（无 reduce_days 类型）——如需缩减，使用 cancel_requirement + new_requirement 组合。其他类型由系统自动计算 |
+| daysDelta | number | 否 | 0 | 天数变化（正数增加，负数减少），支持 0.5 天粒度（0, 0.5, 1, 1.5...）。`add_days` 类型：≥ 0.5，且应用后 currentDays ≥ 0.5。`supplement` 类型：≥ 0（允许 daysDelta=0，表示范围变更但无天数影响；支持 0.5 天粒度）。**MVP 不支持减少已有需求天数**（无 reduce_days 类型）——如需缩减，使用 cancel_requirement + new_requirement 组合。其他类型由系统自动计算 |
 | date | string (ISO date) | 是 | 今天 | 变更日期 |
 | metadata | object \| null | 否 | null | 结构化扩展数据（见 metadata 结构定义） |
 | createdAt | string (ISO datetime) | 是 | auto | 创建时间 |
@@ -107,6 +107,8 @@ Change (N) ──→ (0..1) Requirement [targetRequirement]
 | cancel_requirement | `cancelledRequirementName` | string | 被砍需求名称（冗余存储，防止需求删除后丢失） |
 | cancel_requirement | `cancelledDays` | number | 被砍需求的 currentDays（冗余存储，用于图表绿色段宽度） |
 | new_requirement | `newRequirementName` | string | 新增需求名称（冗余存储） |
+| supplement | `subType` | enum | 补充子类型："feature_addition"（功能补充）\| "condition_change"（条件变更）\| "detail_refinement"（细节细化） |
+| supplement | `cascadeTargets?` | string[] \| undefined | 级联影响的依赖需求 ID 列表（系统自动计算，记录时回写） |
 | 所有 type | `deletedRequirementName?` | string \| undefined | 目标需求被硬删除后，系统回写原需求名称 |
 
 ### Snapshot
@@ -185,8 +187,9 @@ Change (N) ──→ (0..1) Requirement [targetRequirement]
    - add_days → 若目标需求 status ≠ "active" 则跳过（不对 paused/cancelled 需求加天数）；否则 currentDays += daysDelta
    - new_requirement → 创建新需求（isAddedByChange=true，**复用原需求 ID**——确保后续变更的 targetRequirementId 仍指向正确实体），daysDelta 同步为新需求天数
    - cancel_requirement → 若目标需求 status ≠ "active" 则跳过（仅 active 需求可取消——已取消不重复取消，已暂停需先恢复再取消）；否则 status=cancelled，currentDays 保留取消前的值（不置零），daysDelta 重算为 -currentDays（取消时的当前值）
+   - supplement → currentDays += daysDelta（supplement **不受 status 限制**——active/paused/cancelled 需求均可应用，因为 supplement 记录的是"需求范围变更的事实"而非"工期调整"）。daysDelta=0 时仅记录变更事实，不改变 currentDays。若目标需求有依赖者且 metadata.cascadeTargets 存在，级联更新依赖需求的 currentDays
    - reprioritize → 更新 sortOrder，daysDelta=0
-   - pause → 若目标需求 status ≠ "active" 则跳过（已暂停/已取消不重复暂停）；否则 status=paused，pausedRemainingDays=max(1, min(metadata.remainingDays ?? currentDays, currentDays))（clamp：≥1 且 ≤ currentDays，防止 0 天恢复；metadata.remainingDays 缺失时回退到 currentDays）
+   - pause → 若目标需求 status ≠ "active" 则跳过（已暂停/已取消不重复暂停）；否则 status=paused，pausedRemainingDays=max(0.5, min(metadata.remainingDays ?? currentDays, currentDays))（clamp：≥0.5 且 ≤ currentDays，防止 0 天恢复；metadata.remainingDays 缺失时回退到 currentDays）
    - resume → 若目标需求 status ≠ "paused" 则跳过（未暂停不恢复，防止 pausedRemainingDays=null 崩溃）；否则 status=active，currentDays=pausedRemainingDays，pausedRemainingDays=null（清除暂停态残留），daysDelta=0
 5. 更新所有 Change 记录的 daysDelta（cancel 类型会因前序变更不同而变化）
 6. 重新计算总工期
@@ -200,7 +203,7 @@ Change (N) ──→ (0..1) Requirement [targetRequirement]
 
 **编辑限制**：
 - `new_requirement` 类型：可编辑描述、角色、人名、日期、天数。不可更改 type 和 targetRequirementId
-- 其他类型：可编辑描述、角色、人名、日期、天数、targetRequirementId、type。**但 type 不可更改为 `new_requirement`**（因 new_requirement 需关联创建需求实体，无法通过编辑补建）。可选 type 范围：add_days、cancel_requirement、reprioritize、pause、resume
+- 其他类型：可编辑描述、角色、人名、日期、天数、targetRequirementId、type。**但 type 不可更改为 `new_requirement`**（因 new_requirement 需关联创建需求实体，无法通过编辑补建）。可选 type 范围：add_days、cancel_requirement、supplement、reprioritize、pause、resume
 - 删除 `new_requirement` 变更时：级联删除关联需求（按§删除需求的统一合同回写 metadata.deletedRequirementName）。**级联影响**：删除关联需求时，其他以该需求为 target 的变更（如 add_days）同样执行§删除需求的统一合同——targetRequirementId 变为悬空引用，系统回写各自的 metadata.deletedRequirementName。然后 replay 剩余变更
 
 **Replay 中悬空 target 处理**：
@@ -248,9 +251,9 @@ Change (N) ──→ (0..1) Requirement [targetRequirement]
    - change.targetRequirementId 若非 null：允许悬空引用（需求可能已被删除）。若有 metadata.deletedRequirementName 则 UI 显示原名称；若无则 UI 显示"需求已删除"（两种情况均允许导入）
    - requirement.dependsOn 若非 null 必须存在于同项目 requirements 中
    - snapshot.changeId 必须存在于对应 project 的 changes 中
-5. **枚举值校验**：project.status（active/archived）、requirement.status（active/paused/cancelled）、change.type（add_days/new_requirement/cancel_requirement/reprioritize/pause/resume）、change.role（pm/leader/qa/other）必须为合法枚举值
+5. **枚举值校验**：project.status（active/archived）、requirement.status（active/paused/cancelled）、change.type（add_days/new_requirement/cancel_requirement/supplement/reprioritize/pause/resume）、change.role（pm/leader/qa/other）必须为合法枚举值
 6. **数据规模校验**：单项目需求数 ≤ 50、变更数 ≤ 200（超出则拒绝导入）
-7. **数值范围校验**：originalDays ≥ 1、currentDays ≥ 1、sortOrder ≥ 0、add_days 类型的 daysDelta ≥ 1、pausedRemainingDays 若非 null 则 ≥ 1 且 ≤ currentDays
+7. **数值范围校验**：originalDays ≥ 0.5、currentDays ≥ 0.5、sortOrder ≥ 0、add_days 类型的 daysDelta ≥ 0.5、supplement 类型的 daysDelta ≥ 0、pausedRemainingDays 若非 null 则 ≥ 0.5 且 ≤ currentDays
 8. 失败时不写入任何数据（事务回滚），返回具体错误信息
 
 ---
@@ -271,6 +274,7 @@ Change (N) ──→ (0..1) Requirement [targetRequirement]
 | **编辑需求 originalDays** | 是 | 无变更记录时直接同步；有变更记录时触发 replay（currentDays 基于新 originalDays 重算） |
 | **硬删除需求** | 是 | `originalTotalDays` 按剩余需求集重算 |
 | **记录变更 → 新增需求** | 否 | 新需求 `isAddedByChange=true`，不纳入基线 |
+| **记录变更 → 需求补充** | 否 | 只影响 `currentDays`（或 daysDelta=0 时无影响），不影响 `originalDays` |
 | **记录变更 → 加天数/砍需求/暂停/恢复** | 否 | 只影响 `currentDays`/`status`，不影响 `originalDays` |
 
 ### 归因完整性保障
@@ -393,6 +397,7 @@ MVP 不引入"基线锁定"状态机（如 draft → locked），因为：
 | project.currentTotalDays | 所有 active 需求（含 new_requirement 新增的），按最长路径算法 |
 | project.inflationRate | (currentTotalDays - originalTotalDays) / originalTotalDays × 100，四舍五入到整数。当 originalTotalDays = 0 时显示"—"（仅当项目无原始需求时发生） |
 | project.totalChanges | count(changes) |
+| project.supplementCount | count(changes where type="supplement")——包含 daysDelta=0 的补充记录，作为"温水煮青蛙"指标 |
 | project.endDate | startDate + currentTotalDays - 1（包含起始日，与 requirement.endDate 口径一致） |
 | requirement.startDay | 调度器计算的相对偏移天数（Day 0 起始）。无依赖=0；有依赖=前驱需求的 endDay |
 | requirement.endDay | startDay + currentDays（半开区间：[startDay, endDay)。如 startDay=0, currentDays=8 → endDay=8） |
@@ -416,6 +421,7 @@ MVP 不引入"基线锁定"状态机（如 draft → locked），因为：
 - `reprioritize` 类型的 `daysDelta = 0`，不在膨胀条中显示段
 - `cancel_requirement` 的 `daysDelta` 存储为负数（= `-currentDays`），图表中显示为绿色"节省"段
 - `new_requirement` 的 `daysDelta` = 新需求的天数（正数）
+- `supplement` 的 `daysDelta` ≥ 0（允许 0），daysDelta > 0 时在膨胀条中显示玫瑰红段，daysDelta = 0 时不在膨胀条中渲染段（但计入 changeCount 和补充次数统计）
 - `pause/resume` 的 `daysDelta = 0`，不在膨胀条中显示段
 
 ### daysDelta 累加 vs 关键路径 — 计算合同
@@ -512,4 +518,5 @@ originalTotalDays = 12
 | `"cancel_requirement"` | 砍需求 | Change.type |
 | `"reprioritize"` | 调优先级 | Change.type |
 | `"pause"` | 暂停 | Change.type |
+| `"supplement"` | 需求补充 | Change.type |
 | `"resume"` | 恢复 | Change.type |

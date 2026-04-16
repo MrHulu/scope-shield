@@ -61,6 +61,8 @@
 | **角色** | 变更责任人的分类：产品经理（默认）、领导、测试、其他 |
 | **简洁版** | 图表 A — 膨胀对比条，用于日常发群 |
 | **详细版** | 图表 C — 时间线故事 + 甘特条，用于多需求复杂场景 |
+| **需求补充(Supplement)** | 一种变更类型，记录 PM 的隐性需求膨胀（"不算变更的变更"）。分三个子类型：功能补充(feature_addition)、条件变更(condition_change)、细节细化(detail_refinement) |
+| **0.5 天粒度** | 所有天数字段支持 0.5 天步进（0.5, 1, 1.5, 2...），更精确反映实际工作量 |
 
 ---
 
@@ -97,6 +99,7 @@
 | FR-23 | 记录变更 — 优先级调整 | 选择需求调整显示顺序，系统更新 sortOrder（纯展示，不影响工期），记录"X 优先级调整到第 N 位" |
 | FR-24 | 记录变更 — 暂停 | 选择需求标记暂停，填写剩余天数（默认=当前天数），暂停期间不计入工期。记录暂停原因 |
 | FR-25 | 记录变更 — 恢复 | 恢复已暂停需求，currentDays 替换为冻结的剩余天数，继续计入工期 |
+| FR-28 | 记录变更 — 需求补充 | 选择任意状态需求（active/paused/cancelled 均可），选择补充子类型（功能补充/条件变更/细节细化，必选），填写描述（必填）、天数（≥ 0，允许 0，支持 0.5 粒度）、角色、人名。3 步快速模式：选需求 → 写描述 → 填天数。**不受 status 限制**——记录的是"需求范围变更的事实"而非"工期调整"。daysDelta=0 时仅记录变更事实，不改变 currentDays。若目标需求有依赖者，级联自动继承影响（记录在 metadata.cascadeTargets） |
 | FR-26 | 编辑变更 | 已保存的变更记录可编辑所有字段（描述、角色、人名、日期、天数、目标需求）。**类型更改限制**：(1) `new_requirement` 类型的 type 和 targetRequirementId 不可更改；(2) 非 `new_requirement` 类型可更改 type 和目标需求，但**不可更改为 `new_requirement`**（因新增需求需关联创建实体，无法通过编辑补建）。修改 type/target/daysDelta/date/metadata 中影响计算的字段（pause.remainingDays, reprioritize.fromPosition/toPosition）时触发 snapshot replay 重算 |
 | FR-27 | 删除变更 | 删除变更记录需确认弹窗，删除后触发 snapshot replay 重算。删除 `new_requirement` 变更时同时删除关联需求 |
 
@@ -146,6 +149,10 @@
 | BR-18 | 项目不可硬删除 | MVP 不支持项目永久删除。用户只能归档项目（status → "archived"），数据保留。V2 考虑硬删除功能 |
 | BR-19 | 需求删除不触发 replay | 硬删除需求后，相关变更记录保留（targetRequirementId 变为悬空引用，系统回写 metadata.deletedRequirementName）。仅触发调度器重算总工期，不触发完整 snapshot replay |
 | BR-20 | 砍需求保留 currentDays | cancel_requirement 变更将需求 status 设为 cancelled，但 currentDays 保留取消前的值（不置零）。daysDelta = -currentDays（负数，用于图表绿色"节省"段宽度） |
+| BR-21 | 需求补充归因区分 | `add_days` = 估算偏差（团队自身原因），`supplement` = 需求范围膨胀（PM 的"贡献"）。两者在图表中颜色不同（add_days 按角色着色，supplement 固定玫瑰红 #E11D48），帮助开发者区分"我们估错了"和"他们又加东西了" |
+| BR-22 | 0.5 天粒度 | 所有天数字段（originalDays, currentDays, daysDelta, pausedRemainingDays）支持 0.5 天步进。add_days 的 daysDelta ≥ 0.5；supplement 的 daysDelta ≥ 0（允许 0，表示范围变更但无天数影响） |
+| BR-23 | 补充次数统计 | 统计卡片第 5 项"补充次数"= 所有 type="supplement" 的变更记录总数（含 daysDelta=0 的），作为"温水煮青蛙"指标，揭示 PM 的隐性需求膨胀频率 |
+| BR-24 | 补充不受状态限制 | supplement 变更可应用于 active/paused/cancelled 任意状态的需求，不同于 add_days（仅限 active）。因为 supplement 记录的是"需求范围变更的事实"，与需求当前状态无关 |
 
 ---
 
