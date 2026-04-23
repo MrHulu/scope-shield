@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import type { Requirement, CreateRequirementInput } from '../types';
 import * as requirementRepo from '../db/requirementRepo';
-import { schedule, computeOriginalTotalDays, wouldCycle } from '../engine/scheduler';
+import { wouldCycle } from '../engine/scheduler';
 import { replayChanges } from '../engine/replayEngine';
 import * as changeRepo from '../db/changeRepo';
 import * as snapshotRepo from '../db/snapshotRepo';
@@ -99,7 +99,7 @@ export const useRequirementStore = create<RequirementStore>((set, get) => ({
         return;
       } else {
         // No changes — sync currentDays = originalDays
-        const syncData = { ...data, currentDays: data.originalDays };
+        const syncData = { ...data, currentDays: data.originalDays! };
         await requirementRepo.updateRequirement(id, syncData);
         set({
           requirements: reqs.map((r) =>

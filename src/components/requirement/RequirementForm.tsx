@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import type { Requirement, CreateRequirementInput } from '../../types';
+import { validateDays } from '../../utils/validation';
 
 interface RequirementFormProps {
   projectId: string;
@@ -17,13 +18,14 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
   const handleSave = async () => {
     const e: Record<string, string> = {};
     if (!name.trim()) e.name = '名称不能为空';
-    if (!days || parseInt(days) < 1) e.days = '天数必须 ≥ 1';
+    const dErr = validateDays(parseFloat(days));
+    if (!days || dErr) e.days = dErr ?? '天数必须 ≥ 0.5';
     if (Object.keys(e).length > 0) { setErrors(e); return; }
 
     await onSave({
       projectId,
       name: name.trim(),
-      originalDays: parseInt(days),
+      originalDays: parseFloat(days),
       dependsOn,
     });
     setName('');
@@ -52,7 +54,8 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
           <input
             type="number"
             placeholder="天数"
-            min={1}
+            min={0.5}
+            step={0.5}
             value={days}
             onChange={(e) => setDays(e.target.value)}
             className={`w-24 text-sm border rounded px-2 py-1.5 focus:outline-none focus:border-blue-400 ${

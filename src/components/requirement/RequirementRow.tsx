@@ -1,6 +1,9 @@
 import { useState } from 'react';
 import { GripVertical, Pencil, Trash2, Pause, ArrowRight } from 'lucide-react';
+import { useSortable } from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
 import type { Requirement } from '../../types';
+import { validateDays } from '../../utils/validation';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
 
 interface RequirementRowProps {
@@ -17,9 +20,25 @@ export function RequirementRow({ requirement: r, dependencyName, isArchived, onU
   const [days, setDays] = useState(String(r.originalDays));
   const [showDelete, setShowDelete] = useState(false);
 
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging,
+  } = useSortable({ id: r.id, disabled: isArchived || editing });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    opacity: isDragging ? 0.5 : undefined,
+    zIndex: isDragging ? 10 : undefined,
+  };
+
   const handleSave = () => {
-    if (!name.trim() || parseInt(days) < 1) return;
-    onUpdate(r.id, { name: name.trim(), originalDays: parseInt(days) });
+    if (!name.trim() || validateDays(parseFloat(days))) return;
+    onUpdate(r.id, { name: name.trim(), originalDays: parseFloat(days) });
     setEditing(false);
   };
 
@@ -28,7 +47,7 @@ export function RequirementRow({ requirement: r, dependencyName, isArchived, onU
 
   if (editing && !isArchived) {
     return (
-      <div className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
+      <div ref={setNodeRef} style={style} className="flex items-center gap-2 px-4 py-2 bg-gray-50 rounded-lg">
         <input
           value={name}
           onChange={(e) => setName(e.target.value)}
@@ -39,7 +58,8 @@ export function RequirementRow({ requirement: r, dependencyName, isArchived, onU
           type="number"
           value={days}
           onChange={(e) => setDays(e.target.value)}
-          min={1}
+          min={0.5}
+          step={0.5}
           className="w-20 text-sm border border-gray-200 rounded px-2 py-1 focus:outline-none focus:border-blue-400"
         />
         <button onClick={handleSave} className="text-xs bg-blue-600 text-white rounded px-3 py-1 hover:bg-blue-700">保存</button>
@@ -50,9 +70,17 @@ export function RequirementRow({ requirement: r, dependencyName, isArchived, onU
 
   return (
     <>
-      <div className={`group flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-50 ${isCancelled ? 'opacity-50' : ''}`}>
+      <div
+        ref={setNodeRef}
+        style={style}
+        className={`group flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-50 ${isCancelled ? 'opacity-50' : ''}`}
+      >
         {!isArchived && (
-          <div className="cursor-grab text-gray-300 group-hover:text-gray-500">
+          <div
+            className="cursor-grab active:cursor-grabbing text-gray-300 group-hover:text-gray-500 touch-none"
+            {...attributes}
+            {...listeners}
+          >
             <GripVertical size={14} />
           </div>
         )}
@@ -84,11 +112,11 @@ export function RequirementRow({ requirement: r, dependencyName, isArchived, onU
           )}
         </div>
         {!isArchived && (
-          <div className="opacity-0 group-hover:opacity-100 flex gap-1">
-            <button onClick={() => setEditing(true)} className="p-1 hover:bg-gray-200 rounded text-gray-400">
+          <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex gap-1">
+            <button onClick={() => setEditing(true)} aria-label="编辑" className="p-1 hover:bg-gray-200 rounded text-gray-400">
               <Pencil size={12} />
             </button>
-            <button onClick={() => setShowDelete(true)} className="p-1 hover:bg-red-100 rounded text-gray-400 hover:text-red-600">
+            <button onClick={() => setShowDelete(true)} aria-label="删除" className="p-1 hover:bg-red-100 rounded text-gray-400 hover:text-red-600">
               <Trash2 size={12} />
             </button>
           </div>

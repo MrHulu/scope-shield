@@ -60,7 +60,7 @@ export function replayChanges(
 
   // Step 4-5: Apply each change and build snapshots
   for (const change of sortedChanges) {
-    const { daysDelta, newRequirement } = applyChangeForReplay(change, reqs);
+    const { daysDelta } = applyChangeForReplay(change, reqs);
 
     // Update change's daysDelta if recalculated
     const updatedChange: Change = {

@@ -12,6 +12,7 @@ export const APP_COLORS = {
   plan: '#2563EB',
   save: '#059669',
   newRequirement: '#5B21B6',
+  supplement: '#E11D48',
 } as const;
 
 // Export (Apple style) colors
@@ -26,4 +27,5 @@ export const EXPORT_COLORS = {
   plan: '#007AFF',
   save: '#34C759',
   newRequirement: '#5856D6',
+  supplement: '#FF2D55',
 } as const;

@@ -18,7 +18,6 @@ export function ProjectPage() {
   const { id } = useParams<{ id: string }>();
   const navigate = useNavigate();
   const projects = useProjectStore((s) => s.projects);
-  const updateProject = useProjectStore((s) => s.updateProject);
   const archiveProject = useProjectStore((s) => s.archiveProject);
   const restoreProject = useProjectStore((s) => s.restoreProject);
   const setCurrentProjectId = useUIStore((s) => s.setCurrentProjectId);
@@ -41,11 +40,13 @@ export function ProjectPage() {
     addRequirement,
     updateRequirement,
     deleteRequirement,
+    reorderRequirements,
   } = useRequirements(id ?? null);
 
   const {
     changes,
     recordChange,
+    updateChange,
     deleteChange,
   } = useChanges(id ?? null);
 
@@ -54,7 +55,11 @@ export function ProjectPage() {
     project?.startDate ?? '2026-01-01',
   );
 
-  const fullStats = { ...stats, totalChanges: changes.length };
+  const fullStats = {
+    ...stats,
+    totalChanges: changes.length,
+    supplementCount: changes.filter((c) => c.type === 'supplement').length,
+  };
 
   // Export
   const [showExportModal, setShowExportModal] = useState(false);
@@ -112,16 +117,7 @@ export function ProjectPage() {
             onAdd={addRequirement}
             onUpdate={updateRequirement}
             onDelete={deleteRequirement}
-          />
-        </div>
-
-        <div className="mt-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-          <ChartArea
-            requirements={requirements}
-            changes={changes}
-            schedule={scheduleResult}
-            isArchived={isArchived}
-            onExport={() => setShowExportModal(true)}
+            onReorder={reorderRequirements}
           />
         </div>
 
@@ -132,7 +128,18 @@ export function ProjectPage() {
             requirements={requirements}
             isArchived={isArchived}
             onRecord={recordChange}
+            onUpdate={updateChange}
             onDelete={deleteChange}
+          />
+        </div>
+
+        <div className="mt-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+          <ChartArea
+            requirements={requirements}
+            changes={changes}
+            schedule={scheduleResult}
+            isArchived={isArchived}
+            onExport={() => setShowExportModal(true)}
           />
         </div>
       </div>

@@ -1,20 +1,24 @@
-import { useState } from 'react';
-import { X } from 'lucide-react';
-import type { ChangeType, Role, Requirement, CreateChangeInput } from '../../types';
-import { CHANGE_TYPE_LABELS, CHANGE_TYPES } from '../../constants/changeTypes';
+import { useState, useEffect, useCallback, useRef } from 'react';
+import { X, ImagePlus } from 'lucide-react';
+import type { Change, ChangeType, Role, Requirement, CreateChangeInput, SupplementSubType } from '../../types';
+import { CHANGE_TYPE_LABELS, CHANGE_TYPES, SUPPLEMENT_SUBTYPE_LABELS } from '../../constants/changeTypes';
 import { ROLE_LABELS, ROLES } from '../../constants/roles';
 import { PersonNameInput } from './PersonNameInput';
 import { today } from '../../utils/date';
+import { validateDays, validateSupplementDays, validatePausedRemainingDays } from '../../utils/validation';
+import { compressImage, MAX_SCREENSHOTS } from '../../utils/image';
 
 interface ChangeModalProps {
   open: boolean;
   projectId: string;
   requirements: Requirement[];
+  editingChange?: Change | null;
   onSave: (input: CreateChangeInput) => Promise<void>;
+  onUpdate?: (id: string, data: Partial<Change>) => Promise<void>;
   onClose: () => void;
 }
 
-export function ChangeModal({ open, projectId, requirements, onSave, onClose }: ChangeModalProps) {
+export function ChangeModal({ open, projectId, requirements, editingChange, onSave, onUpdate, onClose }: ChangeModalProps) {
   const [type, setType] = useState<ChangeType>('add_days');
   const [targetId, setTargetId] = useState<string | null>(null);
   const [role, setRole] = useState<Role>('pm');
@@ -25,8 +29,94 @@ export function ChangeModal({ open, projectId, requirements, onSave, onClose }: 
   const [newReqName, setNewReqName] = useState('');
   const [newReqDays, setNewReqDays] = useState('');
   const [remainingDays, setRemainingDays] = useState('');
+  const [supplementSubType, setSupplementSubType] = useState<SupplementSubType>('feature_addition');
+  const [fromPosition, setFromPosition] = useState<number | null>(null);
+  const [toPosition, setToPosition] = useState<number | null>(null);
+  const [screenshots, setScreenshots] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
+  const isEditing = !!editingChange;
+
+  // Reset / populate state when modal opens
+  useEffect(() => {
+    if (open) {
+      if (editingChange) {
+        // Edit mode: populate from existing change
+        setType(editingChange.type);
+        setTargetId(editingChange.targetRequirementId);
+        setRole(editingChange.role);
+        setPersonName(editingChange.personName ?? '');
+        setDescription(editingChange.description);
+        setDaysDelta(editingChange.daysDelta ? String(editingChange.daysDelta) : '');
+        setDate(editingChange.date);
+        setNewReqName(editingChange.metadata?.newRequirementName ?? '');
+        setNewReqDays(editingChange.type === 'new_requirement' ? String(editingChange.daysDelta) : '');
+        setRemainingDays(editingChange.metadata?.remainingDays ? String(editingChange.metadata.remainingDays) : '');
+        setSupplementSubType((editingChange.metadata?.subType as SupplementSubType) ?? 'feature_addition');
+        setFromPosition(editingChange.metadata?.fromPosition ?? null);
+        setToPosition(editingChange.metadata?.toPosition ?? null);
+        setScreenshots(editingChange.screenshots ?? []);
+      } else {
+        // Create mode: reset all
+        setType('add_days');
+        setTargetId(null);
+        setRole('pm');
+        setPersonName('');
+        setDescription('');
+        setDaysDelta('');
+        setDate(today());
+        setNewReqName('');
+        setNewReqDays('');
+        setRemainingDays('');
+        setSupplementSubType('feature_addition');
+        setFromPosition(null);
+        setToPosition(null);
+        setScreenshots([]);
+      }
+      setErrors({});
+      setSaving(false);
+    }
+  }, [open, editingChange]);
+
+  // Escape key handler via global listener (div onKeyDown doesn't work on non-focusable elements)
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onClose(); };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, onClose]);
+
+  const addScreenshot = useCallback(async (file: File) => {
+    if (screenshots.length >= MAX_SCREENSHOTS) return;
+    setErrors((prev) => { const { screenshots: _, ...rest } = prev; return rest; });
+    try {
+      const dataUrl = await compressImage(file);
+      setScreenshots((prev) => prev.length >= MAX_SCREENSHOTS ? prev : [...prev, dataUrl]);
+    } catch (err) {
+      setErrors((prev) => ({ ...prev, screenshots: err instanceof Error ? err.message : '图片处理失败' }));
+    }
+  }, [screenshots.length]);
+
+  const handlePaste = useCallback((e: ClipboardEvent) => {
+    const items = e.clipboardData?.items;
+    if (!items) return;
+    for (const item of items) {
+      if (item.type.startsWith('image/')) {
+        e.preventDefault();
+        const blob = item.getAsFile();
+        if (blob) addScreenshot(blob);
+        break;
+      }
+    }
+  }, [addScreenshot]);
+
+  useEffect(() => {
+    if (!open) return;
+    document.addEventListener('paste', handlePaste);
+    return () => document.removeEventListener('paste', handlePaste);
+  }, [open, handlePaste]);
 
   if (!open) return null;
 
@@ -34,14 +124,38 @@ export function ChangeModal({ open, projectId, requirements, onSave, onClose }: 
   const pausedReqs = requirements.filter((r) => r.status === 'paused');
   const needsTarget = ['add_days', 'cancel_requirement', 'pause'].includes(type);
   const needsResume = type === 'resume';
+  const needsSupplement = type === 'supplement';
+
+  // Supplement target: all statuses (active/paused/cancelled)
+  const supplementReqs = requirements;
+
+  const targetReq = targetId ? requirements.find((r) => r.id === targetId) : null;
 
   const handleSave = async () => {
     const e: Record<string, string> = {};
     if (!description.trim()) e.description = '描述不能为空';
-    if (type === 'add_days' && (!daysDelta || parseInt(daysDelta) < 1)) e.daysDelta = '天数必须 ≥ 1';
+    if (type === 'add_days') {
+      const dErr = validateDays(parseFloat(daysDelta));
+      if (!daysDelta || dErr) e.daysDelta = dErr ?? '天数必须 ≥ 0.5';
+    }
     if (type === 'new_requirement') {
       if (!newReqName.trim()) e.newReqName = '名称不能为空';
-      if (!newReqDays || parseInt(newReqDays) < 1) e.newReqDays = '天数必须 ≥ 1';
+      const dErr = validateDays(parseFloat(newReqDays));
+      if (!newReqDays || dErr) e.newReqDays = dErr ?? '天数必须 ≥ 0.5';
+    }
+    if (type === 'supplement') {
+      if (!targetId) e.target = '请选择需求';
+      const sErr = validateSupplementDays(daysDelta ? parseFloat(daysDelta) : 0);
+      if (sErr) e.daysDelta = sErr;
+    }
+    if (type === 'pause' && targetReq && remainingDays) {
+      const pErr = validatePausedRemainingDays(parseFloat(remainingDays), targetReq.currentDays);
+      if (pErr) e.remainingDays = pErr;
+    }
+    if (type === 'reprioritize') {
+      if (fromPosition === null) e.fromPosition = '请选择原位置';
+      if (toPosition === null) e.toPosition = '请选择目标位置';
+      if (fromPosition !== null && toPosition !== null && fromPosition === toPosition) e.toPosition = '目标位置不能与原位置相同';
     }
     if (needsTarget && !targetId) e.target = '请选择需求';
     if (needsResume && !targetId) e.target = '请选择已暂停的需求';
@@ -50,48 +164,89 @@ export function ChangeModal({ open, projectId, requirements, onSave, onClose }: 
 
     setSaving(true);
     try {
-      const input: CreateChangeInput = {
-        projectId,
-        type,
-        targetRequirementId: needsTarget || needsResume ? targetId : null,
-        role,
-        personName: personName.trim() || null,
-        description: description.trim(),
-        daysDelta: type === 'add_days' ? parseInt(daysDelta) : type === 'new_requirement' ? parseInt(newReqDays) : 0,
-        date,
-        metadata: type === 'pause' && remainingDays ? { remainingDays: parseInt(remainingDays) } : null,
-        newRequirementName: type === 'new_requirement' ? newReqName.trim() : undefined,
-        newRequirementDays: type === 'new_requirement' ? parseInt(newReqDays) : undefined,
-      };
-      await onSave(input);
+      if (isEditing && onUpdate) {
+        // Edit mode: only send fields that actually changed to avoid unnecessary replay + updatedAt churn
+        const data: Partial<Change> = {};
+        if (description.trim() !== editingChange!.description) data.description = description.trim();
+        if (role !== editingChange!.role) data.role = role;
+        const trimmedPerson = personName.trim() || null;
+        if (trimmedPerson !== editingChange!.personName) data.personName = trimmedPerson;
+        // Only include replay-triggering fields if they actually changed
+        const newDaysDelta = type === 'add_days' ? parseFloat(daysDelta)
+          : type === 'new_requirement' ? parseFloat(newReqDays)
+          : type === 'supplement' ? (daysDelta ? parseFloat(daysDelta) : 0)
+          : 0;
+        if (newDaysDelta !== editingChange!.daysDelta) data.daysDelta = newDaysDelta;
+        if (date !== editingChange!.date) data.date = date;
+        const newTargetId = needsTarget || needsResume || needsSupplement
+          ? targetId
+          : type === 'new_requirement'
+            ? editingChange!.targetRequirementId  // preserve for new_requirement
+            : null;
+        if (newTargetId !== editingChange!.targetRequirementId) data.targetRequirementId = newTargetId;
+        // Metadata
+        const newMetadata = type === 'pause' && remainingDays ? { remainingDays: parseFloat(remainingDays) }
+          : type === 'new_requirement' ? { ...editingChange!.metadata, newRequirementName: newReqName.trim() }
+          : type === 'supplement' ? { subType: supplementSubType }
+          : type === 'reprioritize' ? { fromPosition: fromPosition!, toPosition: toPosition! }
+          : null;
+        if (JSON.stringify(newMetadata) !== JSON.stringify(editingChange!.metadata)) data.metadata = newMetadata;
+        const oldScreenshots = editingChange!.screenshots ?? [];
+        if (JSON.stringify(screenshots) !== JSON.stringify(oldScreenshots)) data.screenshots = screenshots;
+        await onUpdate(editingChange!.id, data);
+      } else {
+        // Create mode
+        const input: CreateChangeInput = {
+          projectId,
+          type,
+          targetRequirementId: needsTarget || needsResume || needsSupplement ? targetId : null,
+          role,
+          personName: personName.trim() || null,
+          description: description.trim(),
+          daysDelta: type === 'add_days' ? parseFloat(daysDelta)
+            : type === 'new_requirement' ? parseFloat(newReqDays)
+            : type === 'supplement' ? (daysDelta ? parseFloat(daysDelta) : 0)
+            : 0,
+          date,
+          metadata: type === 'pause' && remainingDays ? { remainingDays: parseFloat(remainingDays) }
+            : type === 'supplement' ? { subType: supplementSubType }
+            : type === 'reprioritize' ? { fromPosition: fromPosition!, toPosition: toPosition! }
+            : null,
+          screenshots,
+          newRequirementName: type === 'new_requirement' ? newReqName.trim() : undefined,
+          newRequirementDays: type === 'new_requirement' ? parseFloat(newReqDays) : undefined,
+        };
+        await onSave(input);
+      }
       onClose();
+    } catch (err) {
+      setErrors({ description: (err as Error).message || '保存失败，请重试' });
     } finally {
       setSaving(false);
     }
   };
 
-  const targetReq = targetId ? requirements.find((r) => r.id === targetId) : null;
-
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onClose}>
-      <div className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div role="dialog" aria-modal="true" aria-label={isEditing ? '编辑变更' : '记录变更'} className="bg-white rounded-xl shadow-xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
-          <h3 className="text-lg font-semibold text-gray-900">记录变更</h3>
-          <button onClick={onClose} className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
+          <h3 className="text-lg font-semibold text-gray-900">{isEditing ? '编辑变更' : '记录变更'}</h3>
+          <button onClick={onClose} aria-label="关闭" className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
         </div>
 
         <div className="px-6 py-4 flex flex-col gap-4">
-          {/* Type selection */}
+          {/* Type selection — locked in edit mode */}
           <div>
             <label className="text-xs text-gray-500 mb-1.5 block">变更类型</label>
             <div className="flex flex-wrap gap-1.5">
               {CHANGE_TYPES.map((t) => (
                 <button
                   key={t}
-                  onClick={() => { setType(t); setTargetId(null); }}
+                  onClick={() => { if (!isEditing) { setType(t); setTargetId(null); } }}
+                  disabled={isEditing}
                   className={`text-xs px-3 py-1.5 rounded-full border ${
                     type === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  }`}
+                  } ${isEditing ? 'cursor-not-allowed opacity-60' : ''}`}
                 >
                   {CHANGE_TYPE_LABELS[t]}
                 </button>
@@ -99,7 +254,7 @@ export function ChangeModal({ open, projectId, requirements, onSave, onClose }: 
             </div>
           </div>
 
-          {/* Target requirement */}
+          {/* Target requirement (active only) */}
           {needsTarget && (
             <div>
               <label className="text-xs text-gray-500 mb-1.5 block">目标需求</label>
@@ -124,6 +279,27 @@ export function ChangeModal({ open, projectId, requirements, onSave, onClose }: 
             </div>
           )}
 
+          {/* Supplement target (all statuses) */}
+          {needsSupplement && (
+            <div>
+              <label className="text-xs text-gray-500 mb-1.5 block">目标需求</label>
+              <select
+                value={targetId ?? ''}
+                onChange={(e) => setTargetId(e.target.value || null)}
+                className={`w-full text-sm border rounded px-2 py-1.5 focus:outline-none focus:border-blue-400 ${
+                  errors.target ? 'border-red-300' : 'border-gray-200'
+                }`}
+              >
+                <option value="">选择需求...</option>
+                {supplementReqs.map((r) => (
+                  <option key={r.id} value={r.id}>
+                    {r.name} ({r.currentDays}天){r.status === 'paused' ? ' [暂停]' : r.status === 'cancelled' ? ' [已砍]' : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
+
           {/* Resume target */}
           {needsResume && (
             <div>
@@ -143,17 +319,85 @@ export function ChangeModal({ open, projectId, requirements, onSave, onClose }: 
             </div>
           )}
 
-          {/* Days delta for add_days */}
+          {/* Reprioritize position selectors */}
+          {type === 'reprioritize' && (
+            <div className="flex gap-3">
+              <div className="flex-1">
+                <label className="text-xs text-gray-500 mb-1.5 block">从位置</label>
+                <select
+                  value={fromPosition ?? ''}
+                  onChange={(e) => setFromPosition(e.target.value ? parseInt(e.target.value) : null)}
+                  className={`w-full text-sm border rounded px-2 py-1.5 ${errors.fromPosition ? 'border-red-300' : 'border-gray-200'}`}
+                >
+                  <option value="">选择需求...</option>
+                  {requirements.filter((r) => r.status !== 'cancelled').map((r, i) => (
+                    <option key={r.id} value={i}>#{i + 1} {r.name}</option>
+                  ))}
+                </select>
+              </div>
+              <div className="flex-1">
+                <label className="text-xs text-gray-500 mb-1.5 block">移动到</label>
+                <select
+                  value={toPosition ?? ''}
+                  onChange={(e) => setToPosition(e.target.value ? parseInt(e.target.value) : null)}
+                  className={`w-full text-sm border rounded px-2 py-1.5 ${errors.toPosition ? 'border-red-300' : 'border-gray-200'}`}
+                >
+                  <option value="">选择位置...</option>
+                  {requirements.filter((r) => r.status !== 'cancelled').map((r, i) => (
+                    <option key={r.id} value={i}>#{i + 1} {r.name}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+          )}
+
+          {/* Supplement sub-type */}
+          {needsSupplement && (
+            <div>
+              <label className="text-xs text-gray-500 mb-1.5 block">补充类型</label>
+              <div className="flex flex-wrap gap-1.5">
+                {(Object.entries(SUPPLEMENT_SUBTYPE_LABELS) as Array<[SupplementSubType, string]>).map(([key, label]) => (
+                  <button
+                    key={key}
+                    onClick={() => setSupplementSubType(key)}
+                    className={`text-xs px-3 py-1.5 rounded-full border ${
+                      supplementSubType === key ? 'border-rose-600 bg-rose-50 text-rose-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
+                    }`}
+                  >
+                    {label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Days delta for add_days (now supports negative for reducing days) */}
           {type === 'add_days' && (
             <div>
-              <label className="text-xs text-gray-500 mb-1.5 block">增加天数</label>
+              <label className="text-xs text-gray-500 mb-1.5 block">调整天数</label>
               <input
                 type="number"
-                min={1}
+                step={0.5}
                 value={daysDelta}
                 onChange={(e) => setDaysDelta(e.target.value)}
                 className={`w-32 text-sm border rounded px-2 py-1.5 ${errors.daysDelta ? 'border-red-300' : 'border-gray-200'}`}
-                placeholder="天数"
+                placeholder="正数增加，负数减少"
+              />
+            </div>
+          )}
+
+          {/* Days delta for supplement (allows 0) */}
+          {needsSupplement && (
+            <div>
+              <label className="text-xs text-gray-500 mb-1.5 block">增加天数（可为 0）</label>
+              <input
+                type="number"
+                min={0}
+                step={0.5}
+                value={daysDelta}
+                onChange={(e) => setDaysDelta(e.target.value)}
+                className={`w-32 text-sm border rounded px-2 py-1.5 ${errors.daysDelta ? 'border-red-300' : 'border-gray-200'}`}
+                placeholder="0"
               />
             </div>
           )}
@@ -169,13 +413,15 @@ export function ChangeModal({ open, projectId, requirements, onSave, onClose }: 
                   onChange={(e) => setNewReqName(e.target.value)}
                   className={`w-full text-sm border rounded px-2 py-1.5 ${errors.newReqName ? 'border-red-300' : 'border-gray-200'}`}
                   placeholder="新需求名称"
+                  disabled={isEditing}
                 />
               </div>
               <div className="w-24">
                 <label className="text-xs text-gray-500 mb-1.5 block">天数</label>
                 <input
                   type="number"
-                  min={1}
+                  min={0.5}
+                  step={0.5}
                   value={newReqDays}
                   onChange={(e) => setNewReqDays(e.target.value)}
                   className={`w-full text-sm border rounded px-2 py-1.5 ${errors.newReqDays ? 'border-red-300' : 'border-gray-200'}`}
@@ -190,7 +436,8 @@ export function ChangeModal({ open, projectId, requirements, onSave, onClose }: 
               <label className="text-xs text-gray-500 mb-1.5 block">剩余天数</label>
               <input
                 type="number"
-                min={1}
+                min={0.5}
+                step={0.5}
                 max={targetReq.currentDays}
                 value={remainingDays}
                 onChange={(e) => setRemainingDays(e.target.value)}
@@ -242,6 +489,54 @@ export function ChangeModal({ open, projectId, requirements, onSave, onClose }: 
               className={`w-full text-sm border rounded px-2 py-1.5 ${errors.description ? 'border-red-300' : 'border-gray-200'}`}
             />
           </div>
+
+          {/* Screenshots */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1.5 block">
+              截图证据 <span className="text-gray-400">({screenshots.length}/{MAX_SCREENSHOTS}，可粘贴)</span>
+            </label>
+            <div className="flex flex-wrap gap-2">
+              {screenshots.map((src, i) => (
+                <div key={i} className="relative group w-16 h-16 rounded border border-gray-200 overflow-hidden">
+                  <img src={src} alt={`截图${i + 1}`} className="w-full h-full object-cover" />
+                  <button
+                    type="button"
+                    onClick={() => setScreenshots((prev) => prev.filter((_, j) => j !== i))}
+                    className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white rounded-full text-[10px] leading-none flex items-center justify-center opacity-0 group-hover:opacity-100"
+                    aria-label="删除截图"
+                  >
+                    <X size={10} />
+                  </button>
+                </div>
+              ))}
+              {screenshots.length < MAX_SCREENSHOTS && (
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="w-16 h-16 rounded border-2 border-dashed border-gray-300 flex flex-col items-center justify-center text-gray-400 hover:border-blue-400 hover:text-blue-400"
+                >
+                  <ImagePlus size={16} />
+                  <span className="text-[10px] mt-0.5">添加</span>
+                </button>
+              )}
+            </div>
+            {errors.screenshots && (
+              <p className="text-xs text-red-500 mt-1">{errors.screenshots}</p>
+            )}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept="image/*"
+              multiple
+              className="hidden"
+              onChange={(e) => {
+                setErrors((prev) => { const { screenshots: _, ...rest } = prev; return rest; });
+                const files = e.target.files;
+                if (files) Array.from(files).forEach((f) => addScreenshot(f));
+                e.target.value = '';
+              }}
+            />
+          </div>
         </div>
 
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
@@ -251,7 +546,7 @@ export function ChangeModal({ open, projectId, requirements, onSave, onClose }: 
             disabled={saving}
             className="text-sm text-white bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
           >
-            {saving ? '保存中...' : '保存'}
+            {saving ? '保存中...' : isEditing ? '更新' : '保存'}
           </button>
         </div>
       </div>

@@ -1,12 +1,11 @@
 import { useEffect, useMemo, useCallback } from 'react';
 import { useChangeStore } from '../stores/changeStore';
 import { useRequirementStore } from '../stores/requirementStore';
-import type { CreateChangeInput } from '../types';
+import type { Change, CreateChangeInput } from '../types';
 
 export function useChanges(projectId: string | null) {
-  const { changes, loading, error, loadChanges, recordChange: storeRecord, deleteChange: storeDelete } =
+  const { changes, loading, error, loadChanges, recordChange: storeRecord, updateChange: storeUpdate, deleteChange: storeDelete } =
     useChangeStore();
-  const requirements = useRequirementStore((s) => s.requirements);
   const setRequirements = useRequirementStore((s) => s.setRequirements);
 
   useEffect(() => {
@@ -22,28 +21,36 @@ export function useChanges(projectId: string | null) {
     [changes],
   );
 
-  // Wrap recordChange to auto-pass requirements and sync requirement state
+  // Use getState() to read fresh requirements at call time — avoids stale closure
+  // Errors propagate to callers (e.g. ChangeModal catch block)
   const recordChange = useCallback(
     async (input: CreateChangeInput) => {
-      const result = await storeRecord(input, requirements);
-      if (result) {
-        setRequirements(result.updatedRequirements);
-      }
+      const reqs = useRequirementStore.getState().requirements;
+      const result = await storeRecord(input, reqs);
+      if (result) setRequirements(result.updatedRequirements);
     },
-    [storeRecord, requirements, setRequirements],
+    [storeRecord, setRequirements],
   );
 
-  // Wrap deleteChange to auto-pass projectId and requirements, and sync
+  const updateChange = useCallback(
+    async (id: string, data: Partial<Change>) => {
+      if (!projectId) return;
+      const reqs = useRequirementStore.getState().requirements;
+      const result = await storeUpdate(id, data, projectId, reqs);
+      if (result) setRequirements(result.requirements);
+    },
+    [storeUpdate, projectId, setRequirements],
+  );
+
   const deleteChange = useCallback(
     async (id: string) => {
       if (!projectId) return;
-      const result = await storeDelete(id, projectId, requirements);
-      if (result) {
-        setRequirements(result.requirements);
-      }
+      const reqs = useRequirementStore.getState().requirements;
+      const result = await storeDelete(id, projectId, reqs);
+      if (result) setRequirements(result.requirements);
     },
-    [storeDelete, projectId, requirements, setRequirements],
+    [storeDelete, projectId, setRequirements],
   );
 
-  return { changes: sorted, loading, error, recordChange, deleteChange };
+  return { changes: sorted, loading, error, recordChange, updateChange, deleteChange };
 }

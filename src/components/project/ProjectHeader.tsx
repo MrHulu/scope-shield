@@ -1,4 +1,4 @@
-import { Archive, RotateCcw, Settings } from 'lucide-react';
+import { Archive, RotateCcw } from 'lucide-react';
 import type { Project, ProjectStats } from '../../types';
 import { StatsCard } from './StatsCard';
 import { useState } from 'react';
@@ -63,6 +63,9 @@ export function ProjectHeader({ project, stats, onArchive, onRestore }: ProjectH
         <StatsCard label="当前工期" value={stats.currentTotalDays} suffix="天" />
         <StatsCard label="膨胀率" value={inflationDisplay} color={inflationColor} />
         <StatsCard label="变更次数" value={stats.totalChanges} suffix="次" />
+        {stats.supplementCount > 0 && (
+          <StatsCard label="需求补充" value={stats.supplementCount} suffix="次" />
+        )}
       </div>
 
       <ConfirmDialog

@@ -18,6 +18,7 @@ export function ExportSimple({ requirements, changes, schedule }: ExportSimplePr
       planColor={EXPORT_COLORS.plan}
       saveColor={EXPORT_COLORS.save}
       newReqColor={EXPORT_COLORS.newRequirement}
+      supplementColor={EXPORT_COLORS.supplement}
       isExport
     />
   );

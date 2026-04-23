@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { Plus } from 'lucide-react';
 import type { Change, Requirement, CreateChangeInput } from '../../types';
 import { ChangeRow } from './ChangeRow';
@@ -12,14 +12,35 @@ interface ChangeListProps {
   requirements: Requirement[];
   isArchived: boolean;
   onRecord: (input: CreateChangeInput) => Promise<void>;
-  onDelete: (id: string) => void;
+  onUpdate: (id: string, data: Partial<Change>) => Promise<void>;
+  onDelete: (id: string) => void | Promise<void>;
 }
 
-export function ChangeList({ projectId, changes, requirements, isArchived, onRecord, onDelete }: ChangeListProps) {
+export function ChangeList({ projectId, changes, requirements, isArchived, onRecord, onUpdate, onDelete }: ChangeListProps) {
   const [showModal, setShowModal] = useState(false);
+  const [editingChange, setEditingChange] = useState<Change | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
 
   const deleteTarget = deleteId ? changes.find((c) => c.id === deleteId) : null;
+
+  // Sort by date descending, then createdAt descending
+  const sorted = useMemo(
+    () => [...changes].sort((a, b) => b.date.localeCompare(a.date) || b.createdAt.localeCompare(a.createdAt)),
+    [changes],
+  );
+
+  const handleEdit = (id: string) => {
+    const c = changes.find((ch) => ch.id === id);
+    if (c) {
+      setEditingChange(c);
+      setShowModal(true);
+    }
+  };
+
+  const handleCloseModal = () => {
+    setShowModal(false);
+    setEditingChange(null);
+  };
 
   return (
     <div>
@@ -27,10 +48,10 @@ export function ChangeList({ projectId, changes, requirements, isArchived, onRec
         <h2 className="text-sm font-semibold text-gray-900">变更记录</h2>
         {!isArchived && requirements.length > 0 && (
           <button
-            onClick={() => setShowModal(true)}
-            className="flex items-center gap-1 text-xs text-blue-600 hover:bg-blue-50 px-2 py-1 rounded-lg"
+            onClick={() => { setEditingChange(null); setShowModal(true); }}
+            className="flex items-center gap-1 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg shadow-sm"
           >
-            <Plus size={12} />
+            <Plus size={14} />
             记录变更
           </button>
         )}
@@ -40,13 +61,13 @@ export function ChangeList({ projectId, changes, requirements, isArchived, onRec
         <EmptyState message="暂无变更记录" />
       ) : (
         <div className="flex flex-col gap-0.5 px-2">
-          {changes.map((c) => (
+          {sorted.map((c) => (
             <ChangeRow
               key={c.id}
               change={c}
               requirements={requirements}
               isArchived={isArchived}
-              onEdit={() => {/* TODO: edit modal */}}
+              onEdit={handleEdit}
               onDelete={(id) => setDeleteId(id)}
             />
           ))}
@@ -57,8 +78,10 @@ export function ChangeList({ projectId, changes, requirements, isArchived, onRec
         open={showModal}
         projectId={projectId}
         requirements={requirements}
+        editingChange={editingChange}
         onSave={async (input) => { await onRecord(input); }}
-        onClose={() => setShowModal(false)}
+        onUpdate={onUpdate}
+        onClose={handleCloseModal}
       />
 
       <ConfirmDialog

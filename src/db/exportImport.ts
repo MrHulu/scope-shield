@@ -1,5 +1,5 @@
 import { getDB } from './connection';
-import type { ExportData, Project, Requirement, Change, Snapshot, PersonNameCache } from '../types';
+import type { ExportData } from '../types';
 
 /**
  * Export all data as ExportData JSON.
@@ -103,7 +103,7 @@ function validateImportData(data: unknown): string[] {
 
   const validStatuses = ['active', 'archived'];
   const validReqStatuses = ['active', 'paused', 'cancelled'];
-  const validChangeTypes = ['add_days', 'new_requirement', 'cancel_requirement', 'reprioritize', 'pause', 'resume'];
+  const validChangeTypes = ['add_days', 'new_requirement', 'cancel_requirement', 'supplement', 'reprioritize', 'pause', 'resume'];
   const validRoles = ['pm', 'leader', 'qa', 'other'];
 
   for (const p of d.projects as Array<Record<string, unknown>>) {
@@ -145,11 +145,30 @@ function validateImportData(data: unknown): string[] {
       if (r.status && !validReqStatuses.includes(r.status as string)) {
         errors.push(`Requirement 无效 status: ${r.status}`);
       }
-      if (typeof r.originalDays === 'number' && r.originalDays < 1) {
-        errors.push(`Requirement ${r.id} originalDays < 1`);
+      if (typeof r.originalDays !== 'number') {
+        if (r.originalDays !== undefined && r.originalDays !== null) errors.push(`Requirement ${r.id} originalDays 必须为数字`);
+      } else {
+        if (r.originalDays < 0.5) errors.push(`Requirement ${r.id} originalDays < 0.5`);
+        else if (!Number.isInteger((r.originalDays as number) * 2)) errors.push(`Requirement ${r.id} originalDays 必须为 0.5 的倍数`);
       }
-      if (typeof r.currentDays === 'number' && r.currentDays < 1) {
-        errors.push(`Requirement ${r.id} currentDays < 1`);
+      if (typeof r.currentDays !== 'number') {
+        if (r.currentDays !== undefined && r.currentDays !== null) errors.push(`Requirement ${r.id} currentDays 必须为数字`);
+      } else {
+        if (r.currentDays < 0.5) errors.push(`Requirement ${r.id} currentDays < 0.5`);
+        else if (!Number.isInteger((r.currentDays as number) * 2)) errors.push(`Requirement ${r.id} currentDays 必须为 0.5 的倍数`);
+      }
+      // pausedRemainingDays validation (optional field, present when status=paused)
+      if (r.pausedRemainingDays !== undefined && r.pausedRemainingDays !== null) {
+        if (typeof r.pausedRemainingDays !== 'number') {
+          errors.push(`Requirement ${r.id} pausedRemainingDays 必须为数字`);
+        } else {
+          const prd = r.pausedRemainingDays as number;
+          if (prd < 0.5) errors.push(`Requirement ${r.id} pausedRemainingDays < 0.5`);
+          else if (!Number.isInteger(prd * 2)) errors.push(`Requirement ${r.id} pausedRemainingDays 必须为 0.5 的倍数`);
+          if (typeof r.currentDays === 'number' && prd > (r.currentDays as number)) {
+            errors.push(`Requirement ${r.id} pausedRemainingDays 不能超过 currentDays`);
+          }
+        }
       }
     }
 
@@ -174,6 +193,57 @@ function validateImportData(data: unknown): string[] {
       }
       if (c.role && !validRoles.includes(c.role as string)) {
         errors.push(`Change 无效 role: ${c.role}`);
+      }
+      // Supplement-specific validation
+      if (c.type === 'supplement') {
+        const meta = c.metadata as Record<string, unknown> | null;
+        const validSubTypes = ['feature_addition', 'condition_change', 'detail_refinement'];
+        if (!meta?.subType) {
+          errors.push(`Change ${c.id} supplement 缺少 metadata.subType`);
+        } else if (!validSubTypes.includes(meta.subType as string)) {
+          errors.push(`Change ${c.id} 无效 supplement subType: ${meta.subType}`);
+        }
+        if (typeof c.daysDelta === 'number' && c.daysDelta < 0) {
+          errors.push(`Change ${c.id} supplement daysDelta 不能为负数`);
+        }
+      }
+      // Pause-specific validation
+      if (c.type === 'pause') {
+        const meta = c.metadata as Record<string, unknown> | null;
+        if (meta?.remainingDays !== undefined && meta.remainingDays !== null) {
+          if (typeof meta.remainingDays !== 'number') {
+            errors.push(`Change ${c.id} pause remainingDays 必须为数字`);
+          } else {
+            if (meta.remainingDays < 0.5) errors.push(`Change ${c.id} pause remainingDays < 0.5`);
+            else if (!Number.isInteger(meta.remainingDays * 2)) errors.push(`Change ${c.id} pause remainingDays 必须为 0.5 的倍数`);
+          }
+        }
+      }
+      // Screenshots validation
+      if (c.screenshots !== undefined && c.screenshots !== null) {
+        if (!Array.isArray(c.screenshots)) {
+          errors.push(`Change ${c.id} screenshots 必须为数组`);
+        } else {
+          if (c.screenshots.length > 3) {
+            errors.push(`Change ${c.id} screenshots 超过上限(3)`);
+          }
+          for (const s of c.screenshots) {
+            if (typeof s !== 'string' || !/^data:image\/[a-z]+;base64,/.test(s)) {
+              errors.push(`Change ${c.id} screenshots 必须为 base64 data:image URL`);
+              break;
+            }
+            if (s.length > 600_000) {
+              errors.push(`Change ${c.id} screenshots 单张超过大小限制`);
+              break;
+            }
+          }
+        }
+      }
+      // daysDelta type + half-step validation
+      if (c.daysDelta !== undefined && c.daysDelta !== null && typeof c.daysDelta !== 'number') {
+        errors.push(`Change ${c.id} daysDelta 必须为数字`);
+      } else if (typeof c.daysDelta === 'number' && c.daysDelta !== 0 && !Number.isInteger((c.daysDelta as number) * 2)) {
+        errors.push(`Change ${c.id} daysDelta 必须为 0.5 的倍数`);
       }
     }
 

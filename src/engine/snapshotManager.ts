@@ -1,4 +1,4 @@
-import type { Requirement, Change, Snapshot, SnapshotData } from '../types';
+import type { Requirement, Snapshot, SnapshotData } from '../types';
 import { schedule, computeOriginalTotalDays } from './scheduler';
 import { generateId } from '../utils/id';
 import { now } from '../utils/date';

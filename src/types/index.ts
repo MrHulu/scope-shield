@@ -8,9 +8,12 @@ export type ChangeType =
   | 'add_days'
   | 'new_requirement'
   | 'cancel_requirement'
+  | 'supplement'
   | 'reprioritize'
   | 'pause'
   | 'resume';
+
+export type SupplementSubType = 'feature_addition' | 'condition_change' | 'detail_refinement';
 
 export type Role = 'pm' | 'leader' | 'qa' | 'other';
 
@@ -53,6 +56,8 @@ export interface ChangeMetadata {
   cancelledDays?: number;
   newRequirementName?: string;
   deletedRequirementName?: string;
+  subType?: SupplementSubType;
+  cascadeTargets?: string[];
 }
 
 export interface Change {
@@ -66,6 +71,7 @@ export interface Change {
   daysDelta: number;
   date: string; // ISO date YYYY-MM-DD
   metadata: ChangeMetadata | null;
+  screenshots: string[]; // base64 data URLs, max 3
   createdAt: string;
   updatedAt: string;
 }
@@ -126,6 +132,7 @@ export interface ProjectStats {
   currentTotalDays: number;
   inflationRate: number | null; // null when originalTotalDays=0
   totalChanges: number;
+  supplementCount: number;
   endDate: string;
 }
 
@@ -153,6 +160,7 @@ export interface CreateChangeInput {
   daysDelta?: number;
   date: string;
   metadata?: ChangeMetadata | null;
+  screenshots?: string[]; // base64 data URLs
   // For new_requirement
   newRequirementName?: string;
   newRequirementDays?: number;

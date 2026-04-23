@@ -18,7 +18,8 @@ export function useSchedule(requirements: Requirement[], startDate: string) {
       currentTotalDays: totalDays,
       inflationRate: originalTotalDays > 0 ? Math.round((delay / originalTotalDays) * 100) : null,
       totalChanges: 0, // caller sets this
-      endDate: totalDays > 0 ? addCalendarDays(startDate, totalDays - 1) : startDate,
+      supplementCount: 0, // caller sets this
+      endDate: totalDays > 0 ? addCalendarDays(startDate, Math.max(0, Math.ceil(totalDays) - 1)) : startDate,
     };
   }, [scheduleResult, startDate]);
 

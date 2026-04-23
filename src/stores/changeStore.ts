@@ -34,7 +34,7 @@ interface ChangeStore {
 }
 
 // Fields that trigger a full replay when changed
-const REPLAY_FIELDS = ['type', 'targetRequirementId', 'daysDelta', 'date'] as const;
+const REPLAY_FIELDS = ['type', 'targetRequirementId', 'daysDelta', 'date', 'metadata'] as const;
 
 function needsReplay(data: Partial<Change>): boolean {
   return REPLAY_FIELDS.some((f) => f in data);
@@ -66,23 +66,19 @@ export const useChangeStore = create<ChangeStore>((set, get) => ({
     // Persist change
     await changeRepo.putChange(result.change);
 
-    // Persist updated requirements
-    for (const r of result.updatedRequirements) {
-      await requirementRepo.putRequirement(r);
-    }
-
-    // Create and persist snapshot
+    // Create snapshot
     const snapshot = createSnapshot(
       input.projectId,
       result.change.id,
       result.updatedRequirements,
     );
-    await snapshotRepo.putSnapshot(snapshot);
 
-    // Update person name cache
-    if (input.personName) {
-      await upsertPersonName(input.personName, input.role);
-    }
+    // Persist requirements, snapshot, and person name in parallel
+    await Promise.all([
+      ...result.updatedRequirements.map((r) => requirementRepo.putRequirement(r)),
+      snapshotRepo.putSnapshot(snapshot),
+      ...(input.personName ? [upsertPersonName(input.personName, input.role)] : []),
+    ]);
 
     set({ changes: [...get().changes, result.change] });
     return { change: result.change, updatedRequirements: result.updatedRequirements };
@@ -100,28 +96,23 @@ export const useChangeStore = create<ChangeStore>((set, get) => ({
       const updatedChanges = changes.map((c) => (c.id === id ? updatedChange : c));
       const result = replayChanges(allRequirements, updatedChanges, projectId);
 
-      // Persist
+      // Persist: clear old snapshots first, then write all in parallel
       await snapshotRepo.deleteSnapshotsByProject(projectId);
-      for (const snap of result.snapshots) {
-        await snapshotRepo.putSnapshot(snap);
-      }
-      for (const c of result.changes) {
-        await changeRepo.putChange(c);
-      }
-      for (const r of result.requirements) {
-        await requirementRepo.putRequirement(r);
-      }
+      await Promise.all([
+        ...result.snapshots.map((snap) => snapshotRepo.putSnapshot(snap)),
+        ...result.changes.map((c) => changeRepo.putChange(c)),
+        ...result.requirements.map((r) => requirementRepo.putRequirement(r)),
+      ]);
 
       set({ changes: result.changes });
       return { requirements: result.requirements };
     }
 
     // Simple update (description, role, personName only)
-    await changeRepo.putChange(updatedChange);
-
-    if (data.personName && data.role) {
-      await upsertPersonName(data.personName, data.role);
-    }
+    await Promise.all([
+      changeRepo.putChange(updatedChange),
+      ...(data.personName ? [upsertPersonName(data.personName, data.role ?? existing.role)] : []),
+    ]);
 
     set({
       changes: changes.map((c) => (c.id === id ? updatedChange : c)),
@@ -144,13 +135,6 @@ export const useChangeStore = create<ChangeStore>((set, get) => ({
     // Delete the change
     await changeRepo.deleteChange(id);
 
-    // Also delete the associated snapshot
-    const snapshots = await snapshotRepo.getSnapshotsByProject(projectId);
-    const snap = snapshots.find((s) => s.changeId === id);
-    if (snap) {
-      // We'll delete all snapshots anyway during replay
-    }
-
     // Full replay with remaining changes
     const remainingChanges = changes.filter((c) => c.id !== id);
 
@@ -167,9 +151,7 @@ export const useChangeStore = create<ChangeStore>((set, get) => ({
           updatedAt: now(),
         }));
 
-      for (const r of resetReqs) {
-        await requirementRepo.putRequirement(r);
-      }
+      await Promise.all(resetReqs.map((r) => requirementRepo.putRequirement(r)));
 
       set({ changes: [] });
       return { requirements: resetReqs };
@@ -177,17 +159,13 @@ export const useChangeStore = create<ChangeStore>((set, get) => ({
 
     const result = replayChanges(reqs, remainingChanges, projectId);
 
-    // Persist
+    // Persist: clear old snapshots first, then write all in parallel
     await snapshotRepo.deleteSnapshotsByProject(projectId);
-    for (const snap of result.snapshots) {
-      await snapshotRepo.putSnapshot(snap);
-    }
-    for (const c of result.changes) {
-      await changeRepo.putChange(c);
-    }
-    for (const r of result.requirements) {
-      await requirementRepo.putRequirement(r);
-    }
+    await Promise.all([
+      ...result.snapshots.map((snap) => snapshotRepo.putSnapshot(snap)),
+      ...result.changes.map((c) => changeRepo.putChange(c)),
+      ...result.requirements.map((r) => requirementRepo.putRequirement(r)),
+    ]);
 
     set({ changes: result.changes });
     return { requirements: result.requirements };

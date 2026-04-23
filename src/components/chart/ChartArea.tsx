@@ -8,11 +8,11 @@ interface ChartAreaProps {
   requirements: Requirement[];
   changes: Change[];
   schedule: ScheduleResult;
-  isArchived: boolean;
+  isArchived?: boolean;
   onExport: () => void;
 }
 
-export function ChartArea({ requirements, changes, schedule, isArchived, onExport }: ChartAreaProps) {
+export function ChartArea({ requirements, changes, schedule, onExport }: ChartAreaProps) {
   const chartTab = useUIStore((s) => s.chartTab);
   const setChartTab = useUIStore((s) => s.setChartTab);
 

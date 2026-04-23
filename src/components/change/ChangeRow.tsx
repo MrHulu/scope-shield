@@ -1,6 +1,7 @@
+import { useState } from 'react';
 import { Pencil, Trash2 } from 'lucide-react';
 import type { Change, Requirement } from '../../types';
-import { CHANGE_TYPE_LABELS } from '../../constants/changeTypes';
+import { CHANGE_TYPE_LABELS, SUPPLEMENT_SUBTYPE_LABELS } from '../../constants/changeTypes';
 import { ROLE_LABELS } from '../../constants/roles';
 import { APP_ROLE_COLORS, APP_COLORS } from '../../constants/colors';
 
@@ -13,6 +14,9 @@ interface ChangeRowProps {
 }
 
 export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelete }: ChangeRowProps) {
+  const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
+  const pics = c.screenshots ?? [];
+
   const target = c.targetRequirementId
     ? requirements.find((r) => r.id === c.targetRequirementId)
     : null;
@@ -30,7 +34,9 @@ export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelet
     ? APP_COLORS.newRequirement
     : c.type === 'cancel_requirement'
       ? APP_COLORS.save
-      : APP_ROLE_COLORS[c.role];
+      : c.type === 'supplement'
+        ? APP_COLORS.supplement
+        : APP_ROLE_COLORS[c.role];
 
   const deltaStr = c.daysDelta > 0
     ? `+${c.daysDelta}天`
@@ -46,6 +52,11 @@ export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelet
         <div className="flex items-center gap-1.5">
           <span className="text-xs text-gray-400">{c.date}</span>
           <span className="text-xs font-medium" style={{ color }}>{CHANGE_TYPE_LABELS[c.type]}</span>
+          {c.type === 'supplement' && c.metadata?.subType && (
+            <span className="text-[10px] bg-rose-100 text-rose-600 px-1.5 py-0.5 rounded">
+              {SUPPLEMENT_SUBTYPE_LABELS[c.metadata.subType as keyof typeof SUPPLEMENT_SUBTYPE_LABELS]}
+            </span>
+          )}
           {targetName && (
             <span className={`text-xs ${isDeleted ? 'text-gray-400 line-through' : 'text-gray-600'}`}>
               {targetName}
@@ -59,16 +70,38 @@ export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelet
           {ROLE_LABELS[c.role]}
           {c.personName && ` · ${c.personName}`}
         </p>
+        {pics.length > 0 && (
+          <div className="flex gap-1 mt-1">
+            {pics.map((src, i) => (
+              <button
+                key={i}
+                onClick={() => setLightboxSrc(src)}
+                className="w-8 h-8 rounded border border-gray-200 overflow-hidden hover:border-blue-400 shrink-0"
+              >
+                <img src={src} alt={`证据${i + 1}`} className="w-full h-full object-cover" />
+              </button>
+            ))}
+          </div>
+        )}
       </div>
 
       {!isArchived && (
-        <div className="opacity-0 group-hover:opacity-100 flex gap-1 shrink-0">
-          <button onClick={() => onEdit(c.id)} className="p-1 hover:bg-gray-200 rounded text-gray-400">
+        <div className="opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 flex gap-1 shrink-0">
+          <button onClick={() => onEdit(c.id)} aria-label="编辑" className="p-1 hover:bg-gray-200 rounded text-gray-400">
             <Pencil size={12} />
           </button>
-          <button onClick={() => onDelete(c.id)} className="p-1 hover:bg-red-100 rounded text-gray-400 hover:text-red-600">
+          <button onClick={() => onDelete(c.id)} aria-label="删除" className="p-1 hover:bg-red-100 rounded text-gray-400 hover:text-red-600">
             <Trash2 size={12} />
           </button>
+        </div>
+      )}
+
+      {lightboxSrc && (
+        <div
+          className="fixed inset-0 z-[60] bg-black/70 flex items-center justify-center cursor-zoom-out"
+          onClick={() => setLightboxSrc(null)}
+        >
+          <img src={lightboxSrc} alt="截图证据" className="max-w-[90vw] max-h-[90vh] rounded-lg shadow-2xl" />
         </div>
       )}
     </div>

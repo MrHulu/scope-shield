@@ -11,6 +11,7 @@ interface SimpleChartProps {
   planColor?: string;
   saveColor?: string;
   newReqColor?: string;
+  supplementColor?: string;
   isExport?: boolean;
 }
 
@@ -26,9 +27,11 @@ function getSegmentColor(
   roleColors: Record<Role, string>,
   saveColor: string,
   newReqColor: string,
+  supplementColor: string,
 ): string {
   if (c.type === 'cancel_requirement') return saveColor;
   if (c.type === 'new_requirement') return newReqColor;
+  if (c.type === 'supplement') return supplementColor;
   return roleColors[c.role];
 }
 
@@ -37,6 +40,7 @@ function buildSegments(
   roleColors: Record<Role, string>,
   saveColor: string,
   newReqColor: string,
+  supplementColor: string,
 ): Segment[] {
   return changes
     .filter((c) => c.daysDelta !== 0)
@@ -53,7 +57,7 @@ function buildSegments(
       return {
         change: c,
         width: Math.abs(c.daysDelta),
-        color: getSegmentColor(c, roleColors, saveColor, newReqColor),
+        color: getSegmentColor(c, roleColors, saveColor, newReqColor, supplementColor),
         label,
       };
     });
@@ -83,9 +87,10 @@ export function SimpleChart({
   planColor = APP_COLORS.plan,
   saveColor = APP_COLORS.save,
   newReqColor = APP_COLORS.newRequirement,
+  supplementColor = APP_COLORS.supplement,
 }: SimpleChartProps) {
   const { originalTotalDays, totalDays } = schedule;
-  const segments = buildSegments(changes, roleColors, saveColor, newReqColor);
+  const segments = buildSegments(changes, roleColors, saveColor, newReqColor, supplementColor);
   const segmentDaysSum = segments.reduce((s, seg) => s + seg.width, 0);
 
   if (requirements.length === 0) {
