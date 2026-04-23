@@ -10,6 +10,7 @@ interface DetailChartProps {
   planColor?: string;
   saveColor?: string;
   newReqColor?: string;
+  supplementColor?: string;
   isExport?: boolean;
 }
 
@@ -40,9 +41,11 @@ function getChangeColor(
   roleColors: Record<Role, string>,
   saveColor: string,
   newReqColor: string,
+  supplementColor: string,
 ): string {
   if (c.type === 'cancel_requirement') return saveColor;
   if (c.type === 'new_requirement') return newReqColor;
+  if (c.type === 'supplement') return supplementColor;
   return roleColors[c.role];
 }
 
@@ -51,6 +54,7 @@ function buildTimeline(
   roleColors: Record<Role, string>,
   saveColor: string,
   newReqColor: string,
+  supplementColor: string,
 ): TimelineEntry[] {
   const sorted = [...changes].sort((a, b) => {
     const d = a.date.localeCompare(b.date);
@@ -70,14 +74,16 @@ function buildTimeline(
         ? '（新需求）'
         : c.type === 'cancel_requirement'
           ? '（节省）'
-          : c.type === 'pause'
-            ? '（暂停）'
-            : c.type === 'resume'
-              ? '（恢复）'
-              : '';
+          : c.type === 'supplement'
+            ? '（补充）'
+            : c.type === 'pause'
+              ? '（暂停）'
+              : c.type === 'resume'
+                ? '（恢复）'
+                : '';
     return {
       change: c,
-      color: getChangeColor(c, roleColors, saveColor, newReqColor),
+      color: getChangeColor(c, roleColors, saveColor, newReqColor, supplementColor),
       text: `${c.date}  ${ROLE_LABELS[c.role]}${person}：${c.description}${deltaStr}${typeNote}`,
     };
   });
@@ -90,9 +96,38 @@ function buildGanttRows(
   roleColors: Record<Role, string>,
   saveColor: string,
   newReqColor: string,
+  supplementColor: string,
 ): GanttRow[] {
-  const sorted = [...requirements].sort((a, b) => a.sortOrder - b.sortOrder);
   const schedMap = new Map(schedule.requirementSchedules.map((s) => [s.requirementId, s]));
+
+  // Build map of first change date for each requirement
+  // This aligns gantt y-axis with timeline chronological order
+  const firstChangeDateMap = new Map<string, string>();
+  for (const c of changes) {
+    if (!c.targetRequirementId) continue;
+    const existing = firstChangeDateMap.get(c.targetRequirementId);
+    if (!existing || c.date < existing) {
+      firstChangeDateMap.set(c.targetRequirementId, c.date);
+    }
+  }
+
+  // Sort by first change date (timeline order), then by sortOrder (stable tiebreaker)
+  const sorted = [...requirements].sort((a, b) => {
+    const aFirstChange = firstChangeDateMap.get(a.id);
+    const bFirstChange = firstChangeDateMap.get(b.id);
+
+    // Requirements with no changes come first (in sortOrder)
+    if (!aFirstChange && !bFirstChange) return a.sortOrder - b.sortOrder;
+    if (!aFirstChange) return -1; // a has no changes, comes first
+    if (!bFirstChange) return 1;  // b has no changes, comes first
+
+    // Both have changes, sort by first change date
+    const dateCompare = aFirstChange.localeCompare(bFirstChange);
+    if (dateCompare !== 0) return dateCompare;
+
+    // Same first change date, use sortOrder as tiebreaker
+    return a.sortOrder - b.sortOrder;
+  });
 
   const changesByReq = new Map<string, Change[]>();
   for (const c of changes) {
@@ -112,7 +147,7 @@ function buildGanttRows(
     const segments: GanttSegment[] = reqChanges
       .filter((c) => c.type !== 'cancel_requirement')
       .map((c) => ({
-        color: getChangeColor(c, roleColors, saveColor, newReqColor),
+        color: getChangeColor(c, roleColors, saveColor, newReqColor, supplementColor),
         widthDays: Math.abs(c.daysDelta),
         changeId: c.id,
       }));
@@ -150,6 +185,7 @@ export function DetailChart({
   planColor = APP_COLORS.plan,
   saveColor = APP_COLORS.save,
   newReqColor = APP_COLORS.newRequirement,
+  supplementColor = APP_COLORS.supplement,
 }: DetailChartProps) {
   const { originalTotalDays, totalDays } = schedule;
 
@@ -161,12 +197,22 @@ export function DetailChart({
     );
   }
 
-  const timeline = buildTimeline(changes, roleColors, saveColor, newReqColor);
-  const ganttRows = buildGanttRows(requirements, changes, schedule, roleColors, saveColor, newReqColor);
+  const timeline = buildTimeline(changes, roleColors, saveColor, newReqColor, supplementColor);
+  const ganttRows = buildGanttRows(requirements, changes, schedule, roleColors, saveColor, newReqColor, supplementColor);
+  const maxScheduledEndDay = schedule.requirementSchedules.reduce(
+    (max, item) => Math.max(max, item.endDay),
+    0,
+  );
+  const maxValidRequirementDays = requirements.reduce((max, requirement) => {
+    if (requirement.status === 'cancelled') return max;
+    return Math.max(max, requirement.currentDays);
+  }, 0);
 
   const maxEndDay = Math.max(
-    ...schedule.requirementSchedules.map((s) => s.endDay),
+    maxScheduledEndDay,
     totalDays,
+    originalTotalDays,
+    maxValidRequirementDays,
     1,
   );
 
@@ -232,6 +278,43 @@ export function DetailChart({
 
         {/* === Gantt === */}
         <g transform={`translate(0, ${timelineH + 12})`}>
+          {/* Time axis ticks and grid lines */}
+          {(() => {
+            const tickInterval = maxEndDay <= 10 ? 1 : maxEndDay <= 30 ? 5 : 10;
+            const ticks: number[] = [];
+            for (let d = 0; d <= maxEndDay; d += tickInterval) {
+              ticks.push(d);
+            }
+            if (ticks[ticks.length - 1] !== maxEndDay) ticks.push(maxEndDay);
+            return ticks.map((day) => {
+              const x = dayToX(day);
+              return (
+                <g key={`tick-${day}`}>
+                  {/* Vertical grid line (light) */}
+                  <line
+                    x1={x}
+                    y1={0}
+                    x2={x}
+                    y2={ganttH}
+                    stroke="#E5E7EB"
+                    strokeWidth={1}
+                    strokeDasharray="3,3"
+                  />
+                  {/* Tick label */}
+                  <text
+                    x={x}
+                    y={-6}
+                    textAnchor="middle"
+                    fontSize={9}
+                    fill="#9CA3AF"
+                  >
+                    D{day}
+                  </text>
+                </g>
+              );
+            });
+          })()}
+
           {ganttRows.map((row, i) => {
             const y = i * (ROW_H + ROW_GAP);
             const sched = row.scheduleItem;
@@ -239,6 +322,7 @@ export function DetailChart({
 
             if (row.isNew) {
               const w = dayToW(row.requirement.currentDays);
+              const timeLabel = sched ? `@D${sched.startDay}` : '';
               return (
                 <g key={row.requirement.id} transform={`translate(0, ${y})`}>
                   <text
@@ -250,6 +334,7 @@ export function DetailChart({
                     textDecoration={row.isCancelled ? 'line-through' : 'none'}
                   >
                     {row.requirement.name}
+                    {timeLabel && <tspan fill="#9CA3AF" fontSize={9}> {timeLabel}</tspan>}
                   </text>
                   <rect
                     x={startX}
@@ -273,10 +358,11 @@ export function DetailChart({
             }
 
             const origW = dayToW(row.originalWidth);
+            const timeLabel = sched ? `@D${sched.startDay}` : '';
 
             return (
               <g key={row.requirement.id} transform={`translate(0, ${y})`}>
-                {/* Req name */}
+                {/* Req name with time label */}
                 <text
                   x={LABEL_W - 4}
                   y={ROW_H / 2 + 4}
@@ -286,7 +372,8 @@ export function DetailChart({
                   textDecoration={row.isCancelled ? 'line-through' : 'none'}
                 >
                   {row.requirement.name}
-                  {row.isPaused ? ' ⏸' : ''}
+                  {row.isPaused && ' ⏸'}
+                  {timeLabel && <tspan fill="#9CA3AF" fontSize={9}> {timeLabel}</tspan>}
                 </text>
 
                 {/* Original days bar */}
@@ -381,7 +468,7 @@ export function DetailChart({
         <g transform={`translate(${PAD_L}, ${timelineH + 12 + ganttH + 16})`}>
           <text x={0} y={14} fontSize={11} fill="#6B7280">
             原计划 {originalTotalDays}天 → 实际 {totalDays}天 · {changeCount}次变更
-            {roleSummary ? ` · ${roleSummary}` : ''} · 0天来自开发
+            {roleSummary ? ` · ${roleSummary}` : ''}
           </text>
         </g>
       </svg>

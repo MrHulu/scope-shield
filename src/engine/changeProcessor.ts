@@ -34,9 +34,14 @@ export function processChange(
     case 'add_days': {
       const target = reqs.find((r) => r.id === targetRequirementId);
       if (!target || target.status === 'cancelled') break;
-      // daysDelta must be >= 1, and result >= 1
       target.currentDays += daysDelta;
-      if (target.currentDays < 1) target.currentDays = 1;
+      if (target.currentDays < 0.5) target.currentDays = 0.5;
+      if (target.status === 'paused' && target.pausedRemainingDays != null) {
+        target.pausedRemainingDays = Math.max(
+          0.5,
+          Math.min(target.pausedRemainingDays + daysDelta, target.currentDays),
+        );
+      }
       target.updatedAt = timestamp;
       break;
     }
@@ -93,6 +98,38 @@ export function processChange(
       break;
     }
 
+    case 'supplement': {
+      // Supplement applies to ALL statuses (active/paused/cancelled)
+      const target = reqs.find((r) => r.id === targetRequirementId);
+      if (!target) break;
+
+      if (daysDelta > 0) {
+        target.currentDays += daysDelta;
+        // If target is paused, also update pausedRemainingDays to stay in sync
+        if (target.status === 'paused' && target.pausedRemainingDays != null) {
+          target.pausedRemainingDays += daysDelta;
+        }
+        target.updatedAt = timestamp;
+      }
+      // daysDelta=0: record the fact only, no mutation
+
+      // Cascade auto-inherit: update dependents' schedule via metadata
+      if (daysDelta > 0) {
+        const cascadeTargets: string[] = [];
+        for (const r of reqs) {
+          if (r.dependsOn === target.id && r.status === 'active') {
+            cascadeTargets.push(r.id);
+          }
+        }
+        if (cascadeTargets.length > 0) {
+          metadata = { ...metadata, cascadeTargets };
+        }
+      }
+
+      metadata = { ...metadata, subType: input.metadata?.subType };
+      break;
+    }
+
     case 'reprioritize': {
       const fromPos = metadata?.fromPosition;
       const toPos = metadata?.toPosition;
@@ -127,8 +164,8 @@ export function processChange(
       if (!target || target.status !== 'active') break;
 
       const userRemaining = metadata?.remainingDays ?? target.currentDays;
-      // Clamp: max(1, min(userRemaining, currentDays))
-      target.pausedRemainingDays = Math.max(1, Math.min(userRemaining, target.currentDays));
+      // Clamp: max(0.5, min(userRemaining, currentDays))
+      target.pausedRemainingDays = Math.max(0.5, Math.min(userRemaining, target.currentDays));
       target.status = 'paused';
       target.updatedAt = timestamp;
 
@@ -164,6 +201,7 @@ export function processChange(
     daysDelta,
     date: input.date,
     metadata,
+    screenshots: input.screenshots ?? [],
     createdAt: timestamp,
     updatedAt: timestamp,
   };
@@ -195,14 +233,20 @@ export function applyChangeForReplay(
         break;
       }
       target.currentDays += change.daysDelta;
-      if (target.currentDays < 1) target.currentDays = 1;
+      if (target.currentDays < 0.5) target.currentDays = 0.5;
+      if (target.status === 'paused' && target.pausedRemainingDays != null) {
+        target.pausedRemainingDays = Math.max(
+          0.5,
+          Math.min(target.pausedRemainingDays + change.daysDelta, target.currentDays),
+        );
+      }
       target.updatedAt = timestamp;
       break;
     }
 
     case 'new_requirement': {
       const reqName = change.metadata?.newRequirementName ?? 'New Requirement';
-      const reqDays = Math.abs(change.daysDelta) || 1;
+      const reqDays = Math.abs(change.daysDelta) || 0.5;
 
       newRequirement = {
         id: change.targetRequirementId!, // reuse original ID
@@ -242,6 +286,24 @@ export function applyChangeForReplay(
       break;
     }
 
+    case 'supplement': {
+      // Supplement not restricted by status — applies to active/paused/cancelled
+      if (!target) {
+        daysDelta = change.daysDelta;
+        break;
+      }
+      if (change.daysDelta > 0) {
+        target.currentDays += change.daysDelta;
+        // Sync pausedRemainingDays if target is paused
+        if (target.status === 'paused' && target.pausedRemainingDays != null) {
+          target.pausedRemainingDays += change.daysDelta;
+        }
+        target.updatedAt = timestamp;
+      }
+      daysDelta = change.daysDelta;
+      break;
+    }
+
     case 'reprioritize': {
       const fromPos = change.metadata?.fromPosition;
       const toPos = change.metadata?.toPosition;
@@ -274,7 +336,7 @@ export function applyChangeForReplay(
         break;
       }
       const userRemaining = change.metadata?.remainingDays ?? target.currentDays;
-      target.pausedRemainingDays = Math.max(1, Math.min(userRemaining, target.currentDays));
+      target.pausedRemainingDays = Math.max(0.5, Math.min(userRemaining, target.currentDays));
       target.status = 'paused';
       target.updatedAt = timestamp;
       daysDelta = 0;
