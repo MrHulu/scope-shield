@@ -1,9 +1,10 @@
 import { useState } from 'react';
-import { GripVertical, Pencil, Trash2, Pause, ArrowRight } from 'lucide-react';
+import { ArrowRight, ExternalLink, GripVertical, Pencil, Trash2, Pause } from 'lucide-react';
 import { useSortable } from '@dnd-kit/sortable';
 import { CSS } from '@dnd-kit/utilities';
 import type { Requirement } from '../../types';
 import { validateDays } from '../../utils/validation';
+import { sanitizeRequirementSource } from '../../services/feishuRequirement';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
 
 interface RequirementRowProps {
@@ -44,6 +45,7 @@ export function RequirementRow({ requirement: r, dependencyName, isArchived, onU
 
   const statusIcon = r.status === 'paused' ? <Pause size={12} className="text-amber-500" /> : null;
   const isCancelled = r.status === 'cancelled';
+  const safeSource = sanitizeRequirementSource(r.source);
 
   if (editing && !isArchived) {
     return (
@@ -97,8 +99,23 @@ export function RequirementRow({ requirement: r, dependencyName, isArchived, onU
           {dependencyName && (
             <div className="flex items-center gap-1 text-xs text-gray-400 mt-0.5">
               <ArrowRight size={10} />
-              <span>依赖：{dependencyName}</span>
+              <span>前置：{dependencyName}</span>
             </div>
+          )}
+          {safeSource?.url && (
+            <a
+              href={safeSource.url}
+              target="_blank"
+              rel="noreferrer"
+              className="inline-flex items-center gap-1 text-xs text-blue-500 hover:text-blue-700 mt-0.5"
+              onClick={(e) => e.stopPropagation()}
+            >
+              <ExternalLink size={10} />
+              飞书需求
+              {safeSource.ownerNames && safeSource.ownerNames.length > 0 && (
+                <span className="text-gray-400">· {safeSource.ownerNames.join('、')}</span>
+              )}
+            </a>
           )}
         </div>
         <div className="text-sm text-gray-600 tabular-nums">

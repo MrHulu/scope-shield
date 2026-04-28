@@ -6,6 +6,7 @@ import { useRequirements } from '../hooks/useRequirements';
 import { useChanges } from '../hooks/useChanges';
 import { useSchedule } from '../hooks/useSchedule';
 import { useExport } from '../hooks/useExport';
+import { useSyncFeishu } from '../hooks/useSyncFeishu';
 import { ProjectHeader } from '../components/project/ProjectHeader';
 import { RequirementList } from '../components/requirement/RequirementList';
 import { ChartArea } from '../components/chart/ChartArea';
@@ -49,6 +50,8 @@ export function ProjectPage() {
     updateChange,
     deleteChange,
   } = useChanges(id ?? null);
+
+  const { syncAll, syncing, hasFeishuRequirements } = useSyncFeishu(requirements, updateRequirement);
 
   const { scheduleResult, stats } = useSchedule(
     requirements,
@@ -118,6 +121,9 @@ export function ProjectPage() {
             onUpdate={updateRequirement}
             onDelete={deleteRequirement}
             onReorder={reorderRequirements}
+            onSyncFeishu={syncAll}
+            syncing={syncing}
+            hasFeishuRequirements={hasFeishuRequirements}
           />
         </div>
 

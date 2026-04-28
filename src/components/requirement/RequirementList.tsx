@@ -1,5 +1,5 @@
 import { useState, useCallback } from 'react';
-import { Plus } from 'lucide-react';
+import { Plus, RefreshCw } from 'lucide-react';
 import {
   DndContext,
   closestCenter,
@@ -28,9 +28,12 @@ interface RequirementListProps {
   onUpdate: (id: string, data: Partial<Requirement>) => void;
   onDelete: (id: string) => void;
   onReorder: (orderedIds: string[]) => Promise<void>;
+  onSyncFeishu?: () => Promise<void>;
+  syncing?: boolean;
+  hasFeishuRequirements?: boolean;
 }
 
-export function RequirementList({ projectId, requirements, isArchived, onAdd, onUpdate, onDelete, onReorder }: RequirementListProps) {
+export function RequirementList({ projectId, requirements, isArchived, onAdd, onUpdate, onDelete, onReorder, onSyncFeishu, syncing, hasFeishuRequirements }: RequirementListProps) {
   const [showForm, setShowForm] = useState(false);
   const reqMap = new Map(requirements.map((r) => [r.id, r]));
 
@@ -61,13 +64,25 @@ export function RequirementList({ projectId, requirements, isArchived, onAdd, on
       <div className="flex items-center justify-between px-4 py-3">
         <h2 className="text-sm font-semibold text-gray-900">需求列表</h2>
         {!isArchived && (
-          <button
-            onClick={() => setShowForm(true)}
-            className="flex items-center gap-1 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg shadow-sm"
-          >
-            <Plus size={14} />
-            添加需求
-          </button>
+          <div className="flex items-center gap-2">
+            {hasFeishuRequirements && onSyncFeishu && (
+              <button
+                onClick={onSyncFeishu}
+                disabled={syncing}
+                className="flex items-center gap-1 text-sm text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                <RefreshCw size={14} className={syncing ? 'animate-spin' : ''} />
+                {syncing ? '同步中…' : '同步飞书'}
+              </button>
+            )}
+            <button
+              onClick={() => setShowForm(true)}
+              className="flex items-center gap-1 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg shadow-sm"
+            >
+              <Plus size={14} />
+              添加需求
+            </button>
+          </div>
         )}
       </div>
 
