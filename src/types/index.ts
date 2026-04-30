@@ -43,9 +43,25 @@ export interface Requirement {
   sortOrder: number;
   dependsOn: string | null;
   pausedRemainingDays: number | null;
+  source?: RequirementSource | null;
   createdAt: string;
   updatedAt: string;
   _feishuTaskId?: string | null;
+}
+
+export type RequirementSourceProvider = 'feishu_project';
+
+export interface RequirementSource {
+  provider: RequirementSourceProvider;
+  url: string;
+  projectKey?: string | null;
+  workItemTypeKey?: string | null;
+  workItemId?: string | null;
+  rawTitle?: string | null;
+  ownerNames?: string[];
+  startDate?: string | null;
+  endDate?: string | null;
+  fetchedAt?: string | null;
 }
 
 export interface ChangeMetadata {
@@ -148,6 +164,7 @@ export interface CreateRequirementInput {
   name: string;
   originalDays: number;
   dependsOn?: string | null;
+  source?: RequirementSource | null;
 }
 
 export interface CreateChangeInput {

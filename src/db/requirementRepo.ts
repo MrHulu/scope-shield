@@ -1,4 +1,5 @@
 import { getDB } from './connection';
+import { notifyDataChange } from './changeNotifier';
 import type { Requirement, CreateRequirementInput } from '../types';
 import { generateId } from '../utils/id';
 import { now } from '../utils/date';
@@ -29,10 +30,12 @@ export async function createRequirement(input: CreateRequirementInput): Promise<
     sortOrder: maxSort + 1,
     dependsOn: input.dependsOn ?? null,
     pausedRemainingDays: null,
+    source: input.source ?? null,
     createdAt: now(),
     updatedAt: now(),
   };
   await db.put('requirements', req);
+  notifyDataChange();
   return req;
 }
 
@@ -41,16 +44,19 @@ export async function updateRequirement(id: string, data: Partial<Requirement>):
   const existing = await db.get('requirements', id);
   if (!existing) throw new Error(`Requirement ${id} not found`);
   await db.put('requirements', { ...existing, ...data, updatedAt: now() });
+  notifyDataChange();
 }
 
 export async function putRequirement(req: Requirement): Promise<void> {
   const db = await getDB();
   await db.put('requirements', req);
+  notifyDataChange();
 }
 
 export async function deleteRequirement(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('requirements', id);
+  notifyDataChange();
 }
 
 export async function deleteRequirementsByProject(projectId: string): Promise<void> {
@@ -61,4 +67,5 @@ export async function deleteRequirementsByProject(projectId: string): Promise<vo
     tx.store.delete(r.id);
   }
   await tx.done;
+  notifyDataChange();
 }

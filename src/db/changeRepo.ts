@@ -1,4 +1,5 @@
 import { getDB } from './connection';
+import { notifyDataChange } from './changeNotifier';
 import type { Change } from '../types';
 
 export async function getChangesByProject(projectId: string): Promise<Change[]> {
@@ -14,11 +15,13 @@ export async function getChange(id: string): Promise<Change | undefined> {
 export async function putChange(change: Change): Promise<void> {
   const db = await getDB();
   await db.put('changes', change);
+  notifyDataChange();
 }
 
 export async function deleteChange(id: string): Promise<void> {
   const db = await getDB();
   await db.delete('changes', id);
+  notifyDataChange();
 }
 
 export async function deleteChangesByProject(projectId: string): Promise<void> {
@@ -29,4 +32,5 @@ export async function deleteChangesByProject(projectId: string): Promise<void> {
     tx.store.delete(c.id);
   }
   await tx.done;
+  notifyDataChange();
 }

@@ -1,4 +1,5 @@
 import { getDB } from './connection';
+import { notifyDataChange } from './changeNotifier';
 import type { Snapshot } from '../types';
 
 export async function getSnapshotsByProject(projectId: string): Promise<Snapshot[]> {
@@ -9,6 +10,7 @@ export async function getSnapshotsByProject(projectId: string): Promise<Snapshot
 export async function putSnapshot(snapshot: Snapshot): Promise<void> {
   const db = await getDB();
   await db.put('snapshots', snapshot);
+  notifyDataChange();
 }
 
 export async function deleteSnapshotsByProject(projectId: string): Promise<void> {
@@ -19,4 +21,5 @@ export async function deleteSnapshotsByProject(projectId: string): Promise<void>
     tx.store.delete(s.id);
   }
   await tx.done;
+  notifyDataChange();
 }

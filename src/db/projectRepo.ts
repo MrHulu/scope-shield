@@ -1,4 +1,5 @@
 import { getDB } from './connection';
+import { notifyDataChange } from './changeNotifier';
 import type { Project, CreateProjectInput } from '../types';
 import { generateId } from '../utils/id';
 import { today, now } from '../utils/date';
@@ -25,6 +26,7 @@ export async function createProject(input: CreateProjectInput): Promise<Project>
     updatedAt: now(),
   };
   await db.put('projects', project);
+  notifyDataChange();
   return project;
 }
 
@@ -33,9 +35,11 @@ export async function updateProject(id: string, data: Partial<Project>): Promise
   const existing = await db.get('projects', id);
   if (!existing) throw new Error(`Project ${id} not found`);
   await db.put('projects', { ...existing, ...data, updatedAt: now() });
+  notifyDataChange();
 }
 
 export async function putProject(project: Project): Promise<void> {
   const db = await getDB();
   await db.put('projects', project);
+  notifyDataChange();
 }

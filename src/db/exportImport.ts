@@ -1,5 +1,6 @@
 import { getDB } from './connection';
-import type { ExportData } from '../types';
+import { sanitizeRequirementSource } from '../services/feishuRequirement';
+import type { ExportData, Requirement } from '../types';
 
 /**
  * Export all data as ExportData JSON.
@@ -14,7 +15,12 @@ export async function exportAllData(): Promise<ExportData> {
 
   const projectsWithData = projects.map((p) => ({
     ...p,
-    requirements: allReqs.filter((r) => r.projectId === p.id),
+    requirements: allReqs
+      .filter((r) => r.projectId === p.id)
+      .map((r) => ({
+        ...r,
+        source: sanitizeRequirementSource(r.source),
+      })),
     changes: allChanges.filter((c) => c.projectId === p.id),
     snapshots: allSnaps.filter((s) => s.projectId === p.id),
   }));
@@ -57,7 +63,11 @@ export async function importData(data: unknown): Promise<void> {
       await tx.objectStore('projects').put(project);
 
       for (const r of requirements) {
-        await tx.objectStore('requirements').put(r);
+        const sanitizedRequirement: Requirement = {
+          ...r,
+          source: sanitizeRequirementSource(r.source),
+        };
+        await tx.objectStore('requirements').put(sanitizedRequirement);
       }
       for (const c of changes) {
         await tx.objectStore('changes').put(c);
@@ -168,6 +178,12 @@ function validateImportData(data: unknown): string[] {
           if (typeof r.currentDays === 'number' && prd > (r.currentDays as number)) {
             errors.push(`Requirement ${r.id} pausedRemainingDays 不能超过 currentDays`);
           }
+        }
+      }
+      // Requirement source validation (optional; credentials are never exported)
+      if (r.source !== undefined && r.source !== null) {
+        if (!sanitizeRequirementSource(r.source)) {
+          errors.push(`Requirement ${r.id} source 无效`);
         }
       }
     }

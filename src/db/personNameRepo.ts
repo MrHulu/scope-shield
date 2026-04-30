@@ -1,4 +1,5 @@
 import { getDB } from './connection';
+import { notifyDataChange } from './changeNotifier';
 import type { PersonNameCache, Role } from '../types';
 import { generateId } from '../utils/id';
 import { now } from '../utils/date';
@@ -30,6 +31,7 @@ export async function upsertPersonName(name: string, role: Role): Promise<void> 
       lastUsedAt: now(),
     });
   }
+  notifyDataChange();
 }
 
 export async function cleanupOldNames(): Promise<void> {
@@ -46,4 +48,5 @@ export async function cleanupOldNames(): Promise<void> {
     }
   }
   await tx.done;
+  notifyDataChange();
 }
