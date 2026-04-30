@@ -104,6 +104,12 @@
 |:---:|:---:|
 | ![Settings](docs/screenshots/02-settings.png) | ![RecoveryDialog](docs/screenshots/05-recovery-dialog.png) |
 
+### 设计概念稿（Apple 亮色磨砂玻璃）
+
+![Design Concept](docs/screenshots/00-design-concept.png)
+
+> 视觉语言定位：磨砂玻璃侧边栏 + SF Pro + Apple 蓝/红 + 极简卡片。早期设计稿见 [`docs/prototypes/`](docs/prototypes/)。
+
 ---
 
 ## 🚀 快速开始
