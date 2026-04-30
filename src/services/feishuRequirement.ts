@@ -1,0 +1,485 @@
+import type { RequirementSource } from '../types';
+
+export interface FeishuUrlParseResult {
+  ok: boolean;
+  source?: RequirementSource;
+  error?: string;
+}
+
+export interface RequirementDraft {
+  name: string;
+  originalDays: number | null;
+  source: RequirementSource;
+  status: 'url_only' | 'fetched';
+  error?: string;
+}
+
+export interface FeishuAnalyzeSettings {
+  baseUrl?: string;
+}
+
+export interface AnalyzeFeishuRequirementOptions {
+  settings?: FeishuAnalyzeSettings;
+  fetcher?: typeof fetch;
+}
+
+const FEISHU_HOST_HINTS = ['feishu.cn', 'larksuite.com', 'meegle.com'];
+const FEISHU_API_HOSTS = new Set([
+  'project.feishu.cn',
+  'project.larksuite.com',
+  'project.meegle.com',
+]);
+
+const KNOWN_WORK_ITEM_TYPES = new Set([
+  'story', 'issue', 'requirement', 'task', 'bug', 'epic', 'sub_task',
+]);
+
+const GENERIC_PATH_SEGMENTS = new Set([
+  'project',
+  'proj',
+  'work_item',
+  'workitem',
+  'detail',
+  'issue',
+  'story',
+  'requirement',
+  'task',
+  'view',
+  'item',
+]);
+
+export function parseFeishuProjectUrl(input: string): FeishuUrlParseResult {
+  let url: URL;
+  try {
+    url = new URL(input.trim());
+  } catch {
+    return { ok: false, error: '请输入有效的飞书项目 URL' };
+  }
+
+  const host = url.hostname.toLowerCase();
+  if (url.protocol !== 'https:') {
+    return { ok: false, error: '飞书项目 URL 必须使用 https' };
+  }
+
+  if (!FEISHU_HOST_HINTS.some((hint) => isSameOrSubdomain(host, hint))) {
+    return { ok: false, error: '当前仅支持飞书项目 URL' };
+  }
+
+  const params = collectUrlParams(url);
+  const segmentsResult = collectPathSegments(url);
+  if (!segmentsResult.ok) return { ok: false, error: segmentsResult.error };
+  const segments = segmentsResult.segments;
+  const workItemIndex = segments.findIndex((s) => s === 'work_item' || s === 'workitem');
+
+  const source: RequirementSource = {
+    provider: 'feishu_project',
+    url: url.toString(),
+    projectKey:
+      pickParam(params, ['project_key', 'projectKey', 'simple_name', 'project']) ??
+      inferProjectKey(segments),
+    workItemTypeKey:
+      pickParam(params, ['work_item_type_key', 'workItemTypeKey', 'type_key', 'type']) ??
+      inferWorkItemType(segments, workItemIndex),
+    workItemId:
+      pickParam(params, ['work_item_id', 'workItemId', 'issue_id', 'task_id', 'id']) ??
+      inferWorkItemId(segments, workItemIndex),
+  };
+
+  return { ok: true, source };
+}
+
+export function sanitizeRequirementSource(value: unknown): RequirementSource | null {
+  const record = asRecord(value);
+  if (!record || record.provider !== 'feishu_project' || typeof record.url !== 'string') {
+    return null;
+  }
+
+  const parsed = parseFeishuProjectUrl(record.url);
+  if (!parsed.ok || !parsed.source) return null;
+
+  return {
+    ...parsed.source,
+    rawTitle: optionalString(record.rawTitle),
+    ownerNames: Array.isArray(record.ownerNames)
+      ? uniqueStrings(record.ownerNames.filter((n): n is string => typeof n === 'string')).slice(0, 20)
+      : [],
+    startDate: optionalIsoDate(record.startDate),
+    endDate: optionalIsoDate(record.endDate),
+    fetchedAt: optionalString(record.fetchedAt),
+  };
+}
+
+export function buildFeishuRequirementSource(input: string): RequirementSource {
+  const parsed = parseFeishuProjectUrl(input);
+  if (!parsed.ok || !parsed.source) {
+    throw new Error(parsed.error ?? '无法解析飞书项目 URL');
+  }
+  return parsed.source;
+}
+
+export function mapFeishuWorkItemToDraft(raw: unknown, sourceUrl: string): RequirementDraft {
+  const source = buildFeishuRequirementSource(sourceUrl);
+  const item = unwrapWorkItem(raw);
+  const fields = normalizeFields(item);
+
+  const name =
+    firstString([
+      getValue(item, ['name']),
+      getValue(item, ['title']),
+      getValue(item, ['summary']),
+      getValue(fields, ['name']),
+      getValue(fields, ['title']),
+      getValue(fields, ['summary']),
+      getValue(fields, ['requirement_name']),
+    ]) ?? '';
+
+  const estimate = firstNumber([
+    getValue(item, ['estimate']),
+    getValue(item, ['estimated_days']),
+    getValue(item, ['story_points']),
+    getValue(fields, ['estimate']),
+    getValue(fields, ['estimated_days']),
+    getValue(fields, ['story_points']),
+    getValue(fields, ['dev_days']),
+    getValue(fields, ['工期']),
+  ]);
+
+  const ownerNames = uniqueStrings([
+    ...extractNames(getValue(item, ['owner'])),
+    ...extractNames(getValue(item, ['assignee'])),
+    ...extractNames(getValue(fields, ['owner'])),
+    ...extractNames(getValue(fields, ['assignee'])),
+    ...extractNames(getValue(fields, ['developer'])),
+  ]);
+
+  const startDate = firstIsoDate([
+    getValue(item, ['start_date']),
+    getValue(item, ['startTime']),
+    getValue(fields, ['start_date']),
+    getValue(fields, ['start_time']),
+    getValue(fields, ['plan_start']),
+  ]);
+
+  const endDate = firstIsoDate([
+    getValue(item, ['end_date']),
+    getValue(item, ['due_date']),
+    getValue(item, ['dueDate']),
+    getValue(fields, ['end_date']),
+    getValue(fields, ['due_date']),
+    getValue(fields, ['deadline']),
+    getValue(fields, ['plan_end']),
+  ]);
+
+  return {
+    name,
+    originalDays: estimate && estimate >= 0.5 ? estimate : null,
+    status: 'fetched',
+    source: {
+      ...source,
+      rawTitle: name || null,
+      ownerNames,
+      startDate,
+      endDate,
+      fetchedAt: new Date().toISOString(),
+    },
+  };
+}
+
+export async function analyzeFeishuRequirementUrl(
+  url: string,
+  options: AnalyzeFeishuRequirementOptions = {},
+): Promise<RequirementDraft> {
+  const source = buildFeishuRequirementSource(url);
+
+  if (!source.projectKey || !source.workItemTypeKey || !source.workItemId) {
+    return { name: '', originalDays: null, source, status: 'url_only' };
+  }
+
+  const fetcher = options.fetcher ?? fetch;
+  const proxyBase = '/api/feishu';
+
+  try {
+    const response = await fetcher(`${proxyBase}/v5/workitem/v1/demand_fetch`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        project_simple_name: source.projectKey,
+        work_item_api_name: source.workItemTypeKey,
+        work_item_id: Number(source.workItemId),
+        modules: [{ key: 'detail', params: { first_screen: true, visible_area: { enable: true } } }],
+        version: '2',
+      }),
+    });
+
+    if (!response.ok) {
+      return urlOnlyDraft(source, `飞书代理请求失败：HTTP ${response.status}`);
+    }
+
+    const json = await response.json();
+    if (json.code && json.code !== 0) {
+      return urlOnlyDraft(source, `飞书 API 错误 ${json.code}：${json.msg || '未知错误'}`);
+    }
+
+    return mapDemandFetchToDraft(json, source);
+  } catch (err) {
+    return urlOnlyDraft(source, err instanceof Error ? err.message : '飞书代理请求失败');
+  }
+}
+
+function mapDemandFetchToDraft(json: unknown, source: RequirementSource): RequirementDraft {
+  const root = asRecord(json) ?? {};
+  const data = asRecord(root.data) ?? {};
+
+  const bizWorkItem = extractBizWorkItem(data);
+  const fieldMap = extractFieldValueMap(data);
+
+  const name =
+    firstString([
+      bizWorkItem.name, bizWorkItem.title,
+      fieldMap.name, fieldMap.title, fieldMap.summary,
+    ]) ?? '';
+
+  const estimate = firstNumber([
+    bizWorkItem.estimate, bizWorkItem.story_points, bizWorkItem.estimated_days,
+    fieldMap.estimate, fieldMap.estimated_days, fieldMap.story_points, fieldMap.dev_days,
+  ]);
+
+  const ownerNames = uniqueStrings([
+    ...extractNames(bizWorkItem.owner),
+    ...extractNames(bizWorkItem.assignee),
+    ...extractNames(fieldMap.owner),
+    ...extractNames(fieldMap.assignee),
+  ]);
+
+  const startDate = firstIsoDate([
+    bizWorkItem.start_date, bizWorkItem.start_time,
+    fieldMap.start_date, fieldMap.plan_start,
+  ]);
+  const endDate = firstIsoDate([
+    bizWorkItem.end_date, bizWorkItem.due_date,
+    fieldMap.end_date, fieldMap.due_date, fieldMap.deadline, fieldMap.plan_end,
+  ]);
+
+  const enrichedSource: RequirementSource = {
+    ...source,
+    rawTitle: name || null,
+    ownerNames,
+    startDate,
+    endDate,
+    fetchedAt: new Date().toISOString(),
+  };
+
+  if (!name && !estimate) {
+    return mapFeishuWorkItemToDraft(json, source.url);
+  }
+
+  return {
+    name,
+    originalDays: estimate && estimate >= 0.5 ? estimate : null,
+    status: 'fetched',
+    source: enrichedSource,
+  };
+}
+
+function extractBizWorkItem(data: Record<string, unknown>): Record<string, unknown> {
+  const bizData = Array.isArray(data.biz_data) ? data.biz_data : [];
+  const workitemEntry = bizData.find(
+    (entry: unknown) => asRecord(entry)?.key === 'workitem',
+  );
+  return asRecord(asRecord(workitemEntry)?.value) ?? {};
+}
+
+function extractFieldValueMap(data: Record<string, unknown>): Record<string, unknown> {
+  const modules = Array.isArray(data.modules) ? data.modules : [];
+  const detailModule = modules.find(
+    (m: unknown) => asRecord(m)?.key === 'detail',
+  );
+  const detailData = asRecord(asRecord(detailModule)?.data) ?? {};
+  return asRecord(detailData.field_value_map) ?? {};
+}
+
+function collectUrlParams(url: URL): URLSearchParams {
+  const params = new URLSearchParams(url.search);
+  const hashQueryIndex = url.hash.indexOf('?');
+  if (hashQueryIndex >= 0) {
+    const hashParams = new URLSearchParams(url.hash.slice(hashQueryIndex + 1));
+    hashParams.forEach((value, key) => params.set(key, value));
+  }
+  return params;
+}
+
+function collectPathSegments(url: URL): { ok: true; segments: string[] } | { ok: false; error: string } {
+  const fullPath = `${url.pathname}/${url.hash.replace(/^#/, '').split('?')[0]}`;
+  try {
+    return {
+      ok: true,
+      segments: fullPath
+        .split('/')
+        .map((s) => decodeURIComponent(s.trim()))
+        .filter(Boolean),
+    };
+  } catch {
+    return { ok: false, error: '请输入有效的飞书项目 URL' };
+  }
+}
+
+function pickParam(params: URLSearchParams, keys: string[]): string | null {
+  for (const key of keys) {
+    const value = params.get(key);
+    if (value) return value;
+  }
+  return null;
+}
+
+function inferProjectKey(segments: string[]): string | null {
+  const segment = segments.find((s, index) => {
+    if (index > 3) return false;
+    if (GENERIC_PATH_SEGMENTS.has(s.toLowerCase())) return false;
+    return /[a-zA-Z]/.test(s);
+  });
+  return segment ?? null;
+}
+
+function inferWorkItemType(segments: string[], workItemIndex: number): string | null {
+  if (workItemIndex >= 0 && segments[workItemIndex + 1]) {
+    return segments[workItemIndex + 1];
+  }
+  const found = segments.find((s) => KNOWN_WORK_ITEM_TYPES.has(s.toLowerCase()));
+  return found?.toLowerCase() ?? null;
+}
+
+function inferWorkItemId(segments: string[], workItemIndex: number): string | null {
+  if (workItemIndex >= 0 && segments[workItemIndex + 2]) {
+    return segments[workItemIndex + 2];
+  }
+  return segments.find((s) => /^\d{4,}$/.test(s)) ?? null;
+}
+
+function unwrapWorkItem(raw: unknown): Record<string, unknown> {
+  const root = asRecord(raw) ?? {};
+  const data = asRecord(root.data) ?? root;
+  return (
+    asRecord(data.work_item) ??
+    asRecord(data.workItem) ??
+    asRecord(data.item) ??
+    data
+  );
+}
+
+function normalizeFields(item: Record<string, unknown>): Record<string, unknown> {
+  const fields = item.fields;
+  if (Array.isArray(fields)) {
+    return fields.reduce<Record<string, unknown>>((acc, field) => {
+      const record = asRecord(field);
+      if (!record) return acc;
+      const key = firstString([
+        record.field_key,
+        record.fieldKey,
+        record.key,
+        record.name,
+        record.alias,
+      ]);
+      if (key) acc[key] = record.value ?? record.field_value ?? record.fieldValue;
+      return acc;
+    }, {});
+  }
+  return asRecord(fields) ?? {};
+}
+
+function asRecord(value: unknown): Record<string, unknown> | null {
+  return value && typeof value === 'object' && !Array.isArray(value)
+    ? (value as Record<string, unknown>)
+    : null;
+}
+
+function getValue(source: Record<string, unknown>, path: string[]): unknown {
+  let current: unknown = source;
+  for (const key of path) {
+    const record = asRecord(current);
+    if (!record) return undefined;
+    current = record[key];
+  }
+  return current;
+}
+
+function firstString(values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value === 'string' && value.trim()) return value.trim();
+    if (typeof value === 'number' && Number.isFinite(value)) return String(value);
+  }
+  return null;
+}
+
+function firstNumber(values: unknown[]): number | null {
+  for (const value of values) {
+    const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
+    if (Number.isFinite(n)) return n;
+  }
+  return null;
+}
+
+function firstIsoDate(values: unknown[]): string | null {
+  for (const value of values) {
+    if (typeof value !== 'string' && typeof value !== 'number') continue;
+    const text = String(value);
+    const match = text.match(/\d{4}-\d{2}-\d{2}/);
+    if (match) return match[0];
+  }
+  return null;
+}
+
+function extractNames(value: unknown): string[] {
+  if (!value) return [];
+  if (typeof value === 'string') return [value];
+  if (Array.isArray(value)) return value.flatMap(extractNames);
+  const record = asRecord(value);
+  if (!record) return [];
+  const name = firstString([record.name, record.nickname, record.name_en, record.en_name, record.email, record.id]);
+  return name ? [name] : [];
+}
+
+function uniqueStrings(values: string[]): string[] {
+  return Array.from(new Set(values.map((v) => v.trim()).filter(Boolean)));
+}
+
+function isSameOrSubdomain(host: string, root: string): boolean {
+  return host === root || host.endsWith(`.${root}`);
+}
+
+export function normalizeFeishuApiBaseUrl(input?: string): string {
+  let url: URL;
+  try {
+    url = new URL(input?.trim() || 'https://project.feishu.cn');
+  } catch {
+    throw new Error('飞书 API 地址无效');
+  }
+
+  const host = url.hostname.toLowerCase();
+  const isLocalhost = host === 'localhost' || host === '127.0.0.1';
+  const isOfficialHost = FEISHU_API_HOSTS.has(host);
+
+  if (url.username || url.password || url.search || url.hash || url.pathname !== '/') {
+    throw new Error('飞书 API 地址不能包含路径、参数或账号信息');
+  }
+  if (isOfficialHost && url.protocol === 'https:') return url.origin;
+  if (isLocalhost && (url.protocol === 'http:' || url.protocol === 'https:')) return url.origin;
+  throw new Error('飞书 API 地址仅支持官方域名或本机地址');
+}
+
+function urlOnlyDraft(source: RequirementSource, error?: string): RequirementDraft {
+  return {
+    name: '',
+    originalDays: null,
+    source,
+    status: 'url_only',
+    error,
+  };
+}
+
+function optionalString(value: unknown): string | null {
+  return typeof value === 'string' && value.trim() ? value.trim() : null;
+}
+
+function optionalIsoDate(value: unknown): string | null {
+  return firstIsoDate([value]);
+}
