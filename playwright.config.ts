@@ -2,6 +2,9 @@ import { defineConfig, devices } from '@playwright/test';
 
 export default defineConfig({
   testDir: './e2e',
+  // Capture/utility specs (e.g. _screenshots) are excluded from the default
+  // run. Opt in with CAPTURE_SCREENSHOTS=1 to include them.
+  testIgnore: process.env.CAPTURE_SCREENSHOTS === '1' ? [] : ['**/_*.spec.ts'],
   fullyParallel: false, // tests share IndexedDB state
   forbidOnly: !!process.env.CI,
   retries: process.env.CI ? 1 : 0,

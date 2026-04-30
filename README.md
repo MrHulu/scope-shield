@@ -11,7 +11,13 @@
 [![Tech](https://img.shields.io/badge/React-19-61dafb?style=flat-square&logo=react)](https://react.dev)
 [![Tech](https://img.shields.io/badge/Vite-8-646cff?style=flat-square&logo=vite)](https://vitejs.dev)
 [![Tech](https://img.shields.io/badge/Tailwind-v4-06b6d4?style=flat-square&logo=tailwindcss)](https://tailwindcss.com)
-[![Tests](https://img.shields.io/badge/E2E-58%2F58_passing-success?style=flat-square&logo=playwright)](e2e/)
+[![Tests](https://img.shields.io/badge/E2E-67%2F68_passing-success?style=flat-square&logo=playwright)](e2e/)
+
+---
+
+![Scope Shield 项目总览](docs/screenshots/01-overview.png)
+
+> 这就是范围蔓延：原计划 **18 天** → 当前 **23.5 天**，膨胀 **31%**。每一次需求加 / 改 / 砍 / 重排都被记录、归因、可视化。
 
 ---
 
@@ -74,6 +80,29 @@
 - JSON 全量导出 / 导入
 - 自动备份独立下载
 - modern-screenshot 出图分享
+
+---
+
+## 📸 应用截图
+
+### 双图表视图
+
+| 简洁版（对比条） | 详细版（甘特时间线） |
+|:---:|:---:|
+| ![SimpleChart](docs/screenshots/01-overview.png) | ![DetailChart](docs/screenshots/06-chart-detail.png) |
+| 一眼看清原计划 vs 当前膨胀比例 | 需求级别的甘特时间线 + 变更标注 |
+
+### 核心交互
+
+| 添加需求（含飞书 URL） | 记录变更 |
+|:---:|:---:|
+| ![RequirementForm](docs/screenshots/04-requirement-form.png) | ![ChangeModal](docs/screenshots/03-change-modal.png) |
+
+### 数据保障
+
+| 设置 / 自动备份状态 | 空库启动 · 一键恢复 |
+|:---:|:---:|
+| ![Settings](docs/screenshots/02-settings.png) | ![RecoveryDialog](docs/screenshots/05-recovery-dialog.png) |
 
 ---
 
@@ -172,9 +201,11 @@ npm run test:watch
 npm run test:e2e        # playwright 14 specs（端到端）
 ```
 
-E2E 覆盖：7 个变更类型各一 spec、chart-export、dnd-reorder、gantt-after-reorder、project CRUD、requirement、requirement-feishu-url、screenshot、settings-import-export。**当前 58/58 passing**。
+单元测试 163 个（vitest）+ E2E 67 个（playwright）。E2E 覆盖：7 个变更类型 / chart-export / dnd-reorder / gantt-after-reorder / project CRUD / requirement / requirement-feishu-url / auto-backup / recovery-dialog / screenshot / settings-import-export。
 
-> 待补：自动备份的防抖/裁剪、空库 RecoveryDialog 三按钮路径专项 spec（HANDOFF P0）。
+```bash
+CAPTURE_SCREENSHOTS=1 npm run test:e2e -- e2e/_screenshots.spec.ts  # 重新生成 README 截图
+```
 
 ---
 
