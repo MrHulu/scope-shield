@@ -12,6 +12,14 @@ dist
 dist-ssr
 *.local
 
+# local manual verification scripts (one-off, not regression suite)
+scripts/test-*.ts
+scripts/verify-*.ts
+
+# playwright artifacts
+test-results/
+playwright-report/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json
