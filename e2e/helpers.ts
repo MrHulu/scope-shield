@@ -1,7 +1,10 @@
 import { type Page, expect } from '@playwright/test';
 
 /**
- * Clear IndexedDB to start fresh — call at the beginning of each test file.
+ * Clear IndexedDB and localStorage to start fresh — call at the beginning of
+ * each test file. Clearing localStorage prevents an autoBackup blob written by
+ * a previous test from being read on the next reload (which would either
+ * trigger the recovery dialog or replace expected demo state).
  */
 export async function resetDB(page: Page) {
   await page.goto('/');
@@ -10,6 +13,7 @@ export async function resetDB(page: Page) {
     for (const db of dbs) {
       if (db.name) indexedDB.deleteDatabase(db.name);
     }
+    localStorage.clear();
   });
   await page.reload();
   await page.waitForTimeout(500); // let stores rehydrate
