@@ -1,10 +1,10 @@
 @import "tailwindcss";
+@import "./styles/tokens.css";
 
 :root {
   --font-sans: -apple-system, "Inter", "PingFang SC", "Microsoft YaHei", sans-serif;
-  --color-plan: #2563EB;
-  --color-save: #059669;
-  --color-new-req: #5B21B6;
+  /* Color tokens (--color-plan, --color-save, --color-new-req) and the full
+     glass-material system live in styles/tokens.css. */
 }
 
 body {
@@ -12,6 +12,9 @@ body {
   font-family: var(--font-sans);
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
+  background: var(--backdrop-app);
+  background-attachment: fixed;
+  min-height: 100vh;
 }
 
 #root {

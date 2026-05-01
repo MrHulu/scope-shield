@@ -1,0 +1,135 @@
+/**
+ * Scope Shield Design Tokens — Apple Light Glass aesthetic
+ *
+ * Reference: macOS Sequoia / iOS 17 Control Center material.
+ * Goal: render core surfaces (sidebar, stats, modals) with frosted glass
+ * over a soft gradient backdrop instead of flat #f9fafb panels.
+ *
+ * Usage:
+ *   .glass-panel { background: var(--glass-bg); backdrop-filter: var(--glass-blur); ... }
+ *
+ * Browser caveat: Safari 14+ / Chromium 76+ / Firefox 103+ all support
+ * backdrop-filter. We DO NOT polyfill — older browsers fall back to
+ * --glass-fallback (opaque off-white) automatically via the CSS variable.
+ */
+
+:root {
+  /* ─── Base palette ─────────────────────────────────────────────────── */
+  --color-plan: #2563eb; /* Apple blue, used for "原计划" series */
+  --color-plan-soft: #dbeafe;
+  --color-actual: #f97316; /* warm orange, used for "实际" series */
+  --color-actual-soft: #fed7aa;
+  --color-save: #059669;
+  --color-new-req: #5b21b6;
+  --color-cancel: #6b7280;
+  --color-pause: #f59e0b;
+
+  /* ─── Glass material ───────────────────────────────────────────────── */
+  /* Frosted-white panel, used for cards floating over a soft backdrop. */
+  --glass-bg: rgba(255, 255, 255, 0.72);
+  --glass-bg-strong: rgba(255, 255, 255, 0.85); /* modals — higher contrast */
+  --glass-bg-tinted: rgba(248, 250, 252, 0.78); /* sidebar — tiny blue cast */
+  --glass-fallback: #fafafa; /* opaque fallback for browsers w/o backdrop-filter */
+  --glass-blur: blur(20px) saturate(180%);
+  --glass-blur-strong: blur(30px) saturate(180%);
+  --glass-border: 1px solid rgba(255, 255, 255, 0.6);
+  --glass-border-subtle: 1px solid rgba(15, 23, 42, 0.06);
+
+  /* ─── Soft backdrop gradient ───────────────────────────────────────── */
+  /* Shown behind glass panels so the blur has something to blur. */
+  --backdrop-app: linear-gradient(
+    135deg,
+    #f0f4ff 0%,
+    #fafbff 35%,
+    #fff5f0 100%
+  );
+  --backdrop-card: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+
+  /* ─── Plan / Actual gradients (chart bars, hero cards) ─────────────── */
+  --gradient-plan: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+  --gradient-actual: linear-gradient(135deg, #fb923c 0%, #f97316 100%);
+  --gradient-inflation-up: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+  --gradient-inflation-down: linear-gradient(135deg, #10b981 0%, #059669 100%);
+
+  /* ─── Shadows ──────────────────────────────────────────────────────── */
+  --shadow-card: 0 1px 2px rgba(15, 23, 42, 0.04), 0 4px 16px -6px rgba(15, 23, 42, 0.08);
+  --shadow-card-hover: 0 1px 3px rgba(15, 23, 42, 0.06), 0 8px 24px -8px rgba(15, 23, 42, 0.12);
+  --shadow-modal: 0 20px 48px -12px rgba(15, 23, 42, 0.18), 0 4px 12px rgba(15, 23, 42, 0.06);
+  --shadow-fab: 0 8px 24px -4px rgba(37, 99, 235, 0.32), 0 2px 6px rgba(15, 23, 42, 0.08);
+
+  /* ─── Type scale ───────────────────────────────────────────────────── */
+  --font-size-hero: clamp(2.25rem, 4vw, 3rem); /* hero stat numbers (≥36px) */
+  --font-size-stat: 1.5rem; /* default stat */
+  --font-size-chip: 1rem; /* compact stat */
+
+  /* ─── Animation tokens ─────────────────────────────────────────────── */
+  --motion-fast: 120ms cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-normal: 200ms cubic-bezier(0.4, 0, 0.2, 1);
+  --motion-emphasis: 300ms cubic-bezier(0.34, 1.56, 0.64, 1);
+
+  /* ─── Stable elevations (z-index) ──────────────────────────────────── */
+  --z-fab: 40;
+  --z-toast: 60;
+  --z-modal: 50;
+  --z-command-palette: 70;
+}
+
+/* ─── Reusable utility classes ──────────────────────────────────────── */
+
+.glass-panel {
+  background: var(--glass-fallback);
+  background: var(--glass-bg);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border: var(--glass-border);
+  box-shadow: var(--shadow-card);
+}
+
+.glass-panel-strong {
+  background: var(--glass-fallback);
+  background: var(--glass-bg-strong);
+  backdrop-filter: var(--glass-blur-strong);
+  -webkit-backdrop-filter: var(--glass-blur-strong);
+  border: var(--glass-border);
+  box-shadow: var(--shadow-modal);
+}
+
+.glass-panel-tinted {
+  background: var(--glass-fallback);
+  background: var(--glass-bg-tinted);
+  backdrop-filter: var(--glass-blur);
+  -webkit-backdrop-filter: var(--glass-blur);
+  border-right: var(--glass-border-subtle);
+}
+
+.app-backdrop {
+  background: var(--backdrop-app);
+}
+
+/* ─── Hover lift for cards (subtle, Apple-style) ─────────────────────── */
+.glass-panel-hover {
+  transition: box-shadow var(--motion-normal), transform var(--motion-normal);
+}
+.glass-panel-hover:hover {
+  box-shadow: var(--shadow-card-hover);
+  transform: translateY(-1px);
+}
+
+/* ─── Stat update pulse (used after a value changes) ─────────────────── */
+@keyframes stat-update {
+  0% { transform: scale(1); }
+  35% { transform: scale(1.04); }
+  100% { transform: scale(1); }
+}
+.stat-update-pulse {
+  animation: stat-update var(--motion-emphasis);
+}
+
+/* ─── Highlight pulse for newly-added rows ───────────────────────────── */
+@keyframes highlight-pulse {
+  0% { background-color: rgba(254, 240, 138, 0.6); }
+  100% { background-color: transparent; }
+}
+.highlight-pulse {
+  animation: highlight-pulse 1500ms ease-out;
+}

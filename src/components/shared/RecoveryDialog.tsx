@@ -28,12 +28,15 @@ export function RecoveryDialog({
   const time = new Date(backup.createdAt).toLocaleString('zh-CN');
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40">
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black/40"
+      style={{ zIndex: 'var(--z-modal)' }}
+    >
       <div
         role="alertdialog"
         aria-modal="true"
         aria-label="数据恢复"
-        className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4"
+        className="glass-panel-strong rounded-2xl p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-gray-900 mb-1">检测到历史数据</h3>

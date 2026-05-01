@@ -8,7 +8,7 @@ export function MainLayout() {
   const currentProjectId = useUIStore((s) => s.currentProjectId);
 
   return (
-    <div className="flex h-screen bg-white">
+    <div className="flex h-screen app-backdrop">
       <Sidebar
         projects={projects}
         currentProjectId={currentProjectId}

@@ -27,8 +27,18 @@ export function ProjectHeader({ project, stats, onArchive, onRestore }: ProjectH
           ? 'text-green-600'
           : 'text-gray-900';
 
+  // Hero card caption: tells the story behind the inflation number.
+  const inflationCaption =
+    stats.inflationRate === null
+      ? '尚未发生变更'
+      : stats.inflationRate > 0
+        ? `比原计划多 ${stats.currentTotalDays - stats.originalTotalDays} 天`
+        : stats.inflationRate < 0
+          ? `比原计划少 ${stats.originalTotalDays - stats.currentTotalDays} 天`
+          : '与原计划持平';
+
   return (
-    <div className="px-6 py-4 border-b border-gray-200">
+    <div className="px-6 py-4 border-b border-gray-200/70">
       <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-xl font-semibold text-gray-900">{project.name}</h1>
@@ -58,10 +68,19 @@ export function ProjectHeader({ project, stats, onArchive, onRestore }: ProjectH
         </div>
       </div>
 
-      <div className="flex gap-3">
+      {/* 1 hero (膨胀率) + 4 default chips. Hero spans 1.5x and uses the
+          headline font size so the number that matters most reads first. */}
+      <div className="flex gap-3 flex-wrap items-stretch">
+        <StatsCard
+          variant="hero"
+          label="膨胀率"
+          value={inflationDisplay}
+          color={inflationColor}
+          caption={inflationCaption}
+          testid="hero-stat-inflation"
+        />
         <StatsCard label="原始工期" value={stats.originalTotalDays} suffix="天" />
         <StatsCard label="当前工期" value={stats.currentTotalDays} suffix="天" />
-        <StatsCard label="膨胀率" value={inflationDisplay} color={inflationColor} />
         <StatsCard label="变更次数" value={stats.totalChanges} suffix="次" />
         {stats.supplementCount > 0 && (
           <StatsCard label="需求补充" value={stats.supplementCount} suffix="次" />

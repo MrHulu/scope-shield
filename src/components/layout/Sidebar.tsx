@@ -27,7 +27,7 @@ export function Sidebar({ projects, currentProjectId, onCreateProject }: Sidebar
   };
 
   return (
-    <aside className="w-64 border-r border-gray-200 bg-gray-50 flex flex-col h-full">
+    <aside className="w-64 glass-panel-tinted flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center gap-2">
         <Shield size={20} className="text-blue-600" />

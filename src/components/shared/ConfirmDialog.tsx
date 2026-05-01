@@ -31,12 +31,16 @@ export function ConfirmDialog({
   if (!open) return null;
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/40" onClick={onCancel}>
+    <div
+      className="fixed inset-0 flex items-center justify-center bg-black/40"
+      style={{ zIndex: 'var(--z-modal)' }}
+      onClick={onCancel}
+    >
       <div
         role="alertdialog"
         aria-modal="true"
         aria-label={title}
-        className="bg-white rounded-xl shadow-xl p-6 max-w-sm w-full mx-4"
+        className="glass-panel-strong rounded-2xl p-6 max-w-sm w-full mx-4"
         onClick={(e) => e.stopPropagation()}
       >
         <h3 className="text-lg font-semibold text-gray-900 mb-2">{title}</h3>
