@@ -327,7 +327,7 @@ function extractBizWorkItem(data: Record<string, unknown>): Record<string, unkno
  * scheduleV3.attributes，包含 points (工时数值) + schedule_start/end (排期时间)。
  * 取第一个 points >= 0.5 的节点视为该需求的主排期。
  */
-function extractScheduleFromNodes(
+export function extractScheduleFromNodes(
   data: Record<string, unknown>,
 ): { points: number | null; startMs: number | null; endMs: number | null } {
   const bizData = Array.isArray(data.biz_data) ? data.biz_data : [];
@@ -365,7 +365,7 @@ function extractScheduleFromNodes(
  * 非 archived 节点），解析它的 owner.value JSON → role_key → 在 workitem.role_owners
  * 中查那个 role 的 owners。仅当 workitem.current_status_operator 为空时调用。
  */
-function extractCurrentNodeOwnersByRole(
+export function extractCurrentNodeOwnersByRole(
   data: Record<string, unknown>,
   bizWorkItem: Record<string, unknown>,
 ): string[] {
@@ -404,7 +404,7 @@ function extractCurrentNodeOwnersByRole(
   return names;
 }
 
-function msToIsoDate(ms: number | null): string | null {
+export function msToIsoDate(ms: number | null): string | null {
   if (ms === null || !Number.isFinite(ms)) return null;
   try {
     return new Date(ms).toISOString().slice(0, 10);
@@ -614,7 +614,7 @@ export function normalizeFeishuApiBaseUrl(input?: string): string {
   throw new Error('飞书 API 地址仅支持官方域名或本机地址');
 }
 
-function urlOnlyDraft(source: RequirementSource, error?: string): RequirementDraft {
+export function urlOnlyDraft(source: RequirementSource, error?: string): RequirementDraft {
   // 未登录时给一个占位名（仅 workItemId）— projectKey 推断容易误判，不拼进来
   const placeholderName = source.workItemId ? `飞书需求 #${source.workItemId}` : '';
   return {
