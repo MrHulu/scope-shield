@@ -65,6 +65,10 @@ export interface RequirementSource {
 }
 
 export interface ChangeMetadata {
+  // reprioritize: 新语义 — 直接指定目标需求 + 新前置依赖
+  // (legacy) fromPosition/toPosition 保留用于回放旧 change 数据
+  reprioritizeTargetId?: string;
+  reprioritizeNewDependsOn?: string | null; // null = 无前置
   fromPosition?: number;
   toPosition?: number;
   remainingDays?: number;

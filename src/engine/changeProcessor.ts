@@ -131,28 +131,17 @@ export function processChange(
     }
 
     case 'reprioritize': {
-      const fromPos = metadata?.fromPosition;
-      const toPos = metadata?.toPosition;
-      if (fromPos != null && toPos != null) {
-        // Reorder sortOrder: move item from fromPos to toPos
-        const sorted = [...reqs].sort((a, b) => a.sortOrder - b.sortOrder);
-        const item = sorted.find((r) => r.sortOrder === fromPos);
-        if (item) {
-          // Remove and re-insert
-          const filtered = sorted.filter((r) => r.id !== item.id);
-          filtered.splice(toPos, 0, item);
-          filtered.forEach((r, i) => {
-            r.sortOrder = i;
-            r.updatedAt = timestamp;
-          });
-          // Apply back to reqs
-          for (const r of reqs) {
-            const updated = filtered.find((f) => f.id === r.id);
-            if (updated) {
-              r.sortOrder = updated.sortOrder;
-              r.updatedAt = updated.updatedAt;
-            }
-          }
+      // 新语义：直接选目标需求 + 新前置依赖（null = 无前置）
+      // 旧语义：fromPosition / toPosition（基于 non-cancelled array index）— 保留以回放老 change
+      const newTargetId = metadata?.reprioritizeTargetId;
+      const explicitNewDep = metadata?.reprioritizeNewDependsOn;
+      if (newTargetId !== undefined && explicitNewDep !== undefined) {
+        applyReprioritizeByDep(reqs, newTargetId, explicitNewDep, timestamp);
+      } else {
+        const fromPos = metadata?.fromPosition;
+        const toPos = metadata?.toPosition;
+        if (fromPos != null && toPos != null) {
+          applyReprioritizeByPosition(reqs, fromPos, toPos, timestamp);
         }
       }
       daysDelta = 0;
@@ -305,25 +294,15 @@ export function applyChangeForReplay(
     }
 
     case 'reprioritize': {
-      const fromPos = change.metadata?.fromPosition;
-      const toPos = change.metadata?.toPosition;
-      if (fromPos != null && toPos != null) {
-        const sorted = [...reqs].sort((a, b) => a.sortOrder - b.sortOrder);
-        const item = sorted.find((r) => r.sortOrder === fromPos);
-        if (item) {
-          const filtered = sorted.filter((r) => r.id !== item.id);
-          filtered.splice(toPos, 0, item);
-          filtered.forEach((r, i) => {
-            r.sortOrder = i;
-            r.updatedAt = timestamp;
-          });
-          for (const r of reqs) {
-            const updated = filtered.find((f) => f.id === r.id);
-            if (updated) {
-              r.sortOrder = updated.sortOrder;
-              r.updatedAt = updated.updatedAt;
-            }
-          }
+      const newTargetId = change.metadata?.reprioritizeTargetId;
+      const explicitNewDep = change.metadata?.reprioritizeNewDependsOn;
+      if (newTargetId !== undefined && explicitNewDep !== undefined) {
+        applyReprioritizeByDep(reqs, newTargetId, explicitNewDep, timestamp);
+      } else {
+        const fromPos = change.metadata?.fromPosition;
+        const toPos = change.metadata?.toPosition;
+        if (fromPos != null && toPos != null) {
+          applyReprioritizeByPosition(reqs, fromPos, toPos, timestamp);
         }
       }
       daysDelta = 0;
@@ -358,4 +337,82 @@ export function applyChangeForReplay(
   }
 
   return { daysDelta, newRequirement };
+}
+
+/**
+ * 新版语义：直接把 target 的 dependsOn 改为 newDep（null = 无前置）。
+ * sortOrder 跟着调整，让 target 紧跟在 newDep 之后；newDep=null 则排链头。
+ * 其他需求的 dependsOn 完全不动，保留并行结构不被破坏。
+ */
+function applyReprioritizeByDep(
+  reqs: Requirement[],
+  targetId: string,
+  newDep: string | null,
+  timestamp: string,
+): void {
+  const target = reqs.find((r) => r.id === targetId);
+  if (!target || target.status === 'cancelled') return;
+  target.dependsOn = newDep;
+  target.updatedAt = timestamp;
+
+  const nonCancelled = reqs
+    .filter((r) => r.status !== 'cancelled')
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const without = nonCancelled.filter((r) => r.id !== target.id);
+  let insertAt = 0;
+  if (newDep) {
+    const depIdx = without.findIndex((r) => r.id === newDep);
+    insertAt = depIdx >= 0 ? depIdx + 1 : without.length;
+  }
+  without.splice(insertAt, 0, target);
+  const cancelled = reqs
+    .filter((r) => r.status === 'cancelled')
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  without.forEach((r, i) => {
+    r.sortOrder = i;
+    r.updatedAt = timestamp;
+  });
+  cancelled.forEach((r, i) => {
+    r.sortOrder = without.length + i;
+    r.updatedAt = timestamp;
+  });
+}
+
+/**
+ * 旧版语义（向后兼容）：基于 non-cancelled requirements 的 array index
+ * 把 fromPos 那条移到 toPos，被移动那条的 dependsOn 重设为新位置前一条 active 需求。
+ */
+function applyReprioritizeByPosition(
+  reqs: Requirement[],
+  fromPos: number,
+  toPos: number,
+  timestamp: string,
+): void {
+  const nonCancelled = reqs
+    .filter((r) => r.status !== 'cancelled')
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  const item = nonCancelled[fromPos];
+  if (!item) return;
+  const filtered = nonCancelled.filter((r) => r.id !== item.id);
+  filtered.splice(toPos, 0, item);
+  let legacyDep: string | null = null;
+  for (let i = toPos - 1; i >= 0; i--) {
+    const candidate = filtered[i];
+    if (candidate && candidate.id !== item.id && candidate.status === 'active') {
+      legacyDep = candidate.id;
+      break;
+    }
+  }
+  const cancelled = reqs
+    .filter((r) => r.status === 'cancelled')
+    .sort((a, b) => a.sortOrder - b.sortOrder);
+  filtered.forEach((r, i) => {
+    r.sortOrder = i;
+    r.updatedAt = timestamp;
+  });
+  cancelled.forEach((r, i) => {
+    r.sortOrder = filtered.length + i;
+    r.updatedAt = timestamp;
+  });
+  item.dependsOn = legacyDep;
 }

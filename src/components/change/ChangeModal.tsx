@@ -30,8 +30,9 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
   const [newReqDays, setNewReqDays] = useState('');
   const [remainingDays, setRemainingDays] = useState('');
   const [supplementSubType, setSupplementSubType] = useState<SupplementSubType>('feature_addition');
-  const [fromPosition, setFromPosition] = useState<number | null>(null);
-  const [toPosition, setToPosition] = useState<number | null>(null);
+  // reprioritize: 直接选目标需求 + 新前置依赖（'' = 未选 / '__null__' = 无前置 / <reqId> = 选了某条）
+  const [reprioritizeTarget, setReprioritizeTarget] = useState<string>('');
+  const [reprioritizeNewDep, setReprioritizeNewDep] = useState<string>('');
   const [screenshots, setScreenshots] = useState<string[]>([]);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
@@ -55,8 +56,14 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
         setNewReqDays(editingChange.type === 'new_requirement' ? String(editingChange.daysDelta) : '');
         setRemainingDays(editingChange.metadata?.remainingDays ? String(editingChange.metadata.remainingDays) : '');
         setSupplementSubType((editingChange.metadata?.subType as SupplementSubType) ?? 'feature_addition');
-        setFromPosition(editingChange.metadata?.fromPosition ?? null);
-        setToPosition(editingChange.metadata?.toPosition ?? null);
+        setReprioritizeTarget(editingChange.metadata?.reprioritizeTargetId ?? '');
+        setReprioritizeNewDep(
+          editingChange.metadata?.reprioritizeNewDependsOn === undefined
+            ? ''
+            : editingChange.metadata.reprioritizeNewDependsOn === null
+              ? '__null__'
+              : editingChange.metadata.reprioritizeNewDependsOn,
+        );
         setScreenshots(editingChange.screenshots ?? []);
       } else {
         // Create mode: reset all
@@ -71,8 +78,8 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
         setNewReqDays('');
         setRemainingDays('');
         setSupplementSubType('feature_addition');
-        setFromPosition(null);
-        setToPosition(null);
+        setReprioritizeTarget('');
+        setReprioritizeNewDep('');
         setScreenshots([]);
       }
       setErrors({});
@@ -153,9 +160,11 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
       if (pErr) e.remainingDays = pErr;
     }
     if (type === 'reprioritize') {
-      if (fromPosition === null) e.fromPosition = '请选择原位置';
-      if (toPosition === null) e.toPosition = '请选择目标位置';
-      if (fromPosition !== null && toPosition !== null && fromPosition === toPosition) e.toPosition = '目标位置不能与原位置相同';
+      if (!reprioritizeTarget) e.reprioritizeTarget = '请选择需求';
+      if (!reprioritizeNewDep) e.reprioritizeNewDep = '请选择新前置';
+      if (reprioritizeTarget && reprioritizeNewDep && reprioritizeNewDep !== '__null__' && reprioritizeTarget === reprioritizeNewDep) {
+        e.reprioritizeNewDep = '前置不能是自己';
+      }
     }
     if (needsTarget && !targetId) e.target = '请选择需求';
     if (needsResume && !targetId) e.target = '请选择已暂停的需求';
@@ -188,7 +197,10 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
         const newMetadata = type === 'pause' && remainingDays ? { remainingDays: parseFloat(remainingDays) }
           : type === 'new_requirement' ? { ...editingChange!.metadata, newRequirementName: newReqName.trim() }
           : type === 'supplement' ? { subType: supplementSubType }
-          : type === 'reprioritize' ? { fromPosition: fromPosition!, toPosition: toPosition! }
+          : type === 'reprioritize' ? {
+              reprioritizeTargetId: reprioritizeTarget,
+              reprioritizeNewDependsOn: reprioritizeNewDep === '__null__' ? null : reprioritizeNewDep,
+            }
           : null;
         if (JSON.stringify(newMetadata) !== JSON.stringify(editingChange!.metadata)) data.metadata = newMetadata;
         const oldScreenshots = editingChange!.screenshots ?? [];
@@ -210,7 +222,10 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
           date,
           metadata: type === 'pause' && remainingDays ? { remainingDays: parseFloat(remainingDays) }
             : type === 'supplement' ? { subType: supplementSubType }
-            : type === 'reprioritize' ? { fromPosition: fromPosition!, toPosition: toPosition! }
+            : type === 'reprioritize' ? {
+              reprioritizeTargetId: reprioritizeTarget,
+              reprioritizeNewDependsOn: reprioritizeNewDep === '__null__' ? null : reprioritizeNewDep,
+            }
             : null,
           screenshots,
           newRequirementName: type === 'new_requirement' ? newReqName.trim() : undefined,
@@ -319,34 +334,43 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
             </div>
           )}
 
-          {/* Reprioritize position selectors */}
+          {/* Reprioritize: 选需求 + 选新前置依赖 */}
           {type === 'reprioritize' && (
             <div className="flex gap-3">
               <div className="flex-1">
-                <label className="text-xs text-gray-500 mb-1.5 block">从位置</label>
+                <label className="text-xs text-gray-500 mb-1.5 block">需求</label>
                 <select
-                  value={fromPosition ?? ''}
-                  onChange={(e) => setFromPosition(e.target.value ? parseInt(e.target.value) : null)}
-                  className={`w-full text-sm border rounded px-2 py-1.5 ${errors.fromPosition ? 'border-red-300' : 'border-gray-200'}`}
+                  value={reprioritizeTarget}
+                  onChange={(e) => setReprioritizeTarget(e.target.value)}
+                  className={`w-full text-sm border rounded px-2 py-1.5 ${errors.reprioritizeTarget ? 'border-red-300' : 'border-gray-200'}`}
                 >
                   <option value="">选择需求...</option>
-                  {requirements.filter((r) => r.status !== 'cancelled').map((r, i) => (
-                    <option key={r.id} value={i}>#{i + 1} {r.name}</option>
+                  {requirements.filter((r) => r.status !== 'cancelled').map((r) => (
+                    <option key={r.id} value={r.id}>{r.name}</option>
                   ))}
                 </select>
+                {errors.reprioritizeTarget && (
+                  <p className="text-xs text-red-500 mt-1">{errors.reprioritizeTarget}</p>
+                )}
               </div>
               <div className="flex-1">
-                <label className="text-xs text-gray-500 mb-1.5 block">移动到</label>
+                <label className="text-xs text-gray-500 mb-1.5 block">新前置依赖</label>
                 <select
-                  value={toPosition ?? ''}
-                  onChange={(e) => setToPosition(e.target.value ? parseInt(e.target.value) : null)}
-                  className={`w-full text-sm border rounded px-2 py-1.5 ${errors.toPosition ? 'border-red-300' : 'border-gray-200'}`}
+                  value={reprioritizeNewDep}
+                  onChange={(e) => setReprioritizeNewDep(e.target.value)}
+                  className={`w-full text-sm border rounded px-2 py-1.5 ${errors.reprioritizeNewDep ? 'border-red-300' : 'border-gray-200'}`}
                 >
-                  <option value="">选择位置...</option>
-                  {requirements.filter((r) => r.status !== 'cancelled').map((r, i) => (
-                    <option key={r.id} value={i}>#{i + 1} {r.name}</option>
-                  ))}
+                  <option value="">选择新前置...</option>
+                  <option value="__null__">无前置（与其他需求并行）</option>
+                  {requirements
+                    .filter((r) => r.status !== 'cancelled' && r.id !== reprioritizeTarget)
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>排在「{r.name}」之后</option>
+                    ))}
                 </select>
+                {errors.reprioritizeNewDep && (
+                  <p className="text-xs text-red-500 mt-1">{errors.reprioritizeNewDep}</p>
+                )}
               </div>
             </div>
           )}
