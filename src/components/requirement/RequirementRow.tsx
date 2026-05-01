@@ -11,11 +11,13 @@ interface RequirementRowProps {
   requirement: Requirement;
   dependencyName: string | null;
   isArchived: boolean;
+  /** True for ~1.5s after this row is created — applies the highlight pulse. */
+  justAdded?: boolean;
   onUpdate: (id: string, data: Partial<Requirement>) => void;
   onDelete: (id: string) => void;
 }
 
-export function RequirementRow({ requirement: r, dependencyName, isArchived, onUpdate, onDelete }: RequirementRowProps) {
+export function RequirementRow({ requirement: r, dependencyName, isArchived, justAdded = false, onUpdate, onDelete }: RequirementRowProps) {
   const [editing, setEditing] = useState(false);
   const [name, setName] = useState(r.name);
   const [days, setDays] = useState(String(r.originalDays));
@@ -75,7 +77,8 @@ export function RequirementRow({ requirement: r, dependencyName, isArchived, onU
       <div
         ref={setNodeRef}
         style={style}
-        className={`group flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-50 ${isCancelled ? 'opacity-50' : ''}`}
+        data-just-added={justAdded ? 'true' : undefined}
+        className={`group flex items-center gap-2 px-4 py-2 rounded-lg hover:bg-gray-50 ${isCancelled ? 'opacity-50' : ''} ${justAdded ? 'highlight-pulse' : ''}`}
       >
         {!isArchived && (
           <div

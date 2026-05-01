@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect } from 'react';
 import { Plus, RefreshCw } from 'lucide-react';
 import {
   DndContext,
@@ -35,7 +35,17 @@ interface RequirementListProps {
 
 export function RequirementList({ projectId, requirements, isArchived, onAdd, onUpdate, onDelete, onReorder, onSyncFeishu, syncing, hasFeishuRequirements }: RequirementListProps) {
   const [showForm, setShowForm] = useState(false);
+  // Pulse the row that was just added for ~1.5s so the user sees the
+  // visual confirmation that their action landed (especially important
+  // when stat cards don't budge — which is most of the time for added reqs).
+  const [justAddedId, setJustAddedId] = useState<string | null>(null);
   const reqMap = new Map(requirements.map((r) => [r.id, r]));
+
+  useEffect(() => {
+    if (!justAddedId) return;
+    const t = setTimeout(() => setJustAddedId(null), 1500);
+    return () => clearTimeout(t);
+  }, [justAddedId]);
 
   const sensors = useSensors(
     useSensor(PointerSensor, { activationConstraint: { distance: 5 } }),
@@ -93,7 +103,10 @@ export function RequirementList({ projectId, requirements, isArchived, onAdd, on
             requirements={requirements}
             onSave={async (input) => {
               const r = await onAdd(input);
-              if (r) setShowForm(false);
+              if (r) {
+                setShowForm(false);
+                setJustAddedId(r.id);
+              }
               return r;
             }}
             onCancel={() => setShowForm(false)}
@@ -113,6 +126,7 @@ export function RequirementList({ projectId, requirements, isArchived, onAdd, on
                   requirement={r}
                   dependencyName={r.dependsOn ? (reqMap.get(r.dependsOn)?.name ?? '已删除') : null}
                   isArchived={isArchived}
+                  justAdded={r.id === justAddedId}
                   onUpdate={(id, data) => onUpdate(id, data)}
                   onDelete={onDelete}
                 />

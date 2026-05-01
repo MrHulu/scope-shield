@@ -8,6 +8,7 @@ import { useSchedule } from '../hooks/useSchedule';
 import { useExport } from '../hooks/useExport';
 import { useSyncFeishu } from '../hooks/useSyncFeishu';
 import { ProjectHeader } from '../components/project/ProjectHeader';
+import { FloatingCTA } from '../components/project/FloatingCTA';
 import { RequirementList } from '../components/requirement/RequirementList';
 import { ChartArea } from '../components/chart/ChartArea';
 import { ChangeList } from '../components/change/ChangeList';
@@ -151,6 +152,8 @@ export function ProjectPage() {
           />
         </div>
       </div>
+
+      <FloatingCTA disabled={isArchived || requirements.length === 0} />
 
       {/* Export modal */}
       <ExportModal

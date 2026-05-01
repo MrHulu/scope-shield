@@ -7,6 +7,7 @@ import { PersonNameInput } from './PersonNameInput';
 import { today } from '../../utils/date';
 import { validateDays, validateSupplementDays, validatePausedRemainingDays } from '../../utils/validation';
 import { compressImage, MAX_SCREENSHOTS } from '../../utils/image';
+import { showToast } from '../shared/Toast';
 
 interface ChangeModalProps {
   open: boolean;
@@ -164,6 +165,22 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
       if (!reprioritizeNewDep) e.reprioritizeNewDep = '请选择新前置';
       if (reprioritizeTarget && reprioritizeNewDep && reprioritizeNewDep !== '__null__' && reprioritizeTarget === reprioritizeNewDep) {
         e.reprioritizeNewDep = '前置不能是自己';
+      }
+      // No-op detection: when newDep equals the target's existing dependsOn,
+      // saving this as a change would record nothing meaningful — toast and
+      // bail instead so the user understands why stats don't move.
+      if (
+        reprioritizeTarget &&
+        reprioritizeNewDep &&
+        Object.keys(e).length === 0 &&
+        !isEditing
+      ) {
+        const currentDep = requirements.find((r) => r.id === reprioritizeTarget)?.dependsOn ?? null;
+        const requestedDep = reprioritizeNewDep === '__null__' ? null : reprioritizeNewDep;
+        if (currentDep === requestedDep) {
+          showToast('前置依赖未变化，未生效', 'info');
+          return;
+        }
       }
     }
     if (needsTarget && !targetId) e.target = '请选择需求';

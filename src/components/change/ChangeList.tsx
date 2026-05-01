@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useEffect } from 'react';
 import { Plus } from 'lucide-react';
 import type { Change, Requirement, CreateChangeInput } from '../../types';
 import { ChangeRow } from './ChangeRow';
@@ -41,6 +41,19 @@ export function ChangeList({ projectId, changes, requirements, isArchived, onRec
     setShowModal(false);
     setEditingChange(null);
   };
+
+  // Listen for window-level "open record-change modal" requests dispatched
+  // by the floating CTA and ⌘⇧C keyboard shortcut. Uses a custom event to
+  // avoid lifting modal state up the tree (single source of truth here).
+  useEffect(() => {
+    if (isArchived || requirements.length === 0) return;
+    const handler = () => {
+      setEditingChange(null);
+      setShowModal(true);
+    };
+    window.addEventListener('scope-shield:open-change-modal', handler);
+    return () => window.removeEventListener('scope-shield:open-change-modal', handler);
+  }, [isArchived, requirements.length]);
 
   return (
     <div>

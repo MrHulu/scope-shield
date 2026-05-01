@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from 'react';
+
 interface StatsCardProps {
   label: string;
   value: string | number;
@@ -17,6 +19,24 @@ interface StatsCardProps {
   testid?: string;
 }
 
+/**
+ * Pulses the value when it changes — anchors the user's eye on the number
+ * that just moved, addressing W1 of the secretary walkthrough where stat
+ * updates went unnoticed.
+ */
+function useValuePulse(value: string | number): boolean {
+  const prev = useRef(value);
+  const [pulsing, setPulsing] = useState(false);
+  useEffect(() => {
+    if (prev.current === value) return;
+    prev.current = value;
+    setPulsing(true);
+    const t = setTimeout(() => setPulsing(false), 300);
+    return () => clearTimeout(t);
+  }, [value]);
+  return pulsing;
+}
+
 export function StatsCard({
   label,
   value,
@@ -27,6 +47,8 @@ export function StatsCard({
   testid,
 }: StatsCardProps) {
   const valueColor = color ?? 'text-gray-900';
+  const pulse = useValuePulse(value);
+  const pulseClass = pulse ? 'stat-update-pulse' : '';
 
   if (variant === 'hero') {
     return (
@@ -38,8 +60,8 @@ export function StatsCard({
           {label}
         </p>
         <p
-          className={`font-semibold leading-none ${valueColor}`}
-          style={{ fontSize: 'var(--font-size-hero)' }}
+          className={`font-semibold leading-none ${valueColor} ${pulseClass}`}
+          style={{ fontSize: 'var(--font-size-hero)', display: 'inline-block', transformOrigin: 'left center' }}
         >
           {value}
           {suffix && (
@@ -60,7 +82,7 @@ export function StatsCard({
         className="glass-panel rounded-xl px-3 py-2 flex items-center gap-2 min-w-0"
       >
         <span className="text-xs text-gray-500">{label}</span>
-        <span className={`text-base font-semibold ${valueColor}`}>
+        <span className={`text-base font-semibold ${valueColor} ${pulseClass}`} style={{ display: 'inline-block' }}>
           {value}
           {suffix && <span className="text-xs font-normal text-gray-500 ml-0.5">{suffix}</span>}
         </span>
@@ -75,8 +97,8 @@ export function StatsCard({
     >
       <p className="text-xs text-gray-500 mb-1">{label}</p>
       <p
-        className={`text-2xl font-semibold ${valueColor}`}
-        style={{ fontSize: 'var(--font-size-stat)' }}
+        className={`text-2xl font-semibold ${valueColor} ${pulseClass}`}
+        style={{ fontSize: 'var(--font-size-stat)', display: 'inline-block', transformOrigin: 'left center' }}
       >
         {value}
         {suffix && <span className="text-sm font-normal text-gray-500 ml-0.5">{suffix}</span>}
