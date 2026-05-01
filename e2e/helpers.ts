@@ -1,23 +1,58 @@
 import { type Page, expect } from '@playwright/test';
 
 /**
- * Clear IndexedDB and localStorage to start fresh — call at the beginning of
- * each test file. Clearing localStorage prevents an autoBackup blob written by
- * a previous test from being read on the next reload (which would either
- * trigger the recovery dialog or replace expected demo state).
+ * Wipe ALL persistence layers before a test: IndexedDB + localStorage +
+ * sessionStorage + cookies + Service Workers. Required because Scope Shield
+ * uses localStorage for auto-backup; a stale blob from a prior test will
+ * trigger the recovery dialog on the next reload and clobber expected state.
+ *
+ * Lands on about:blank between wipe and reload so any in-flight beforeunload
+ * autoBackup flush from the prior page can't race the wipe.
  */
-export async function resetDB(page: Page) {
+export async function hardResetDB(page: Page) {
+  // First land on the app once so we have a same-origin context to nuke.
   await page.goto('/');
   await page.evaluate(async () => {
+    // IndexedDB — drop every named DB
     const dbs = await indexedDB.databases();
-    for (const db of dbs) {
-      if (db.name) indexedDB.deleteDatabase(db.name);
-    }
+    await Promise.all(
+      dbs.map(
+        (db) =>
+          new Promise<void>((resolve) => {
+            if (!db.name) return resolve();
+            const req = indexedDB.deleteDatabase(db.name);
+            req.onsuccess = req.onerror = () => resolve();
+            req.onblocked = () => setTimeout(resolve, 200);
+          }),
+      ),
+    );
+    // Web storage
     localStorage.clear();
+    sessionStorage.clear();
+    // Cookies
+    for (const c of document.cookie.split(';')) {
+      const name = c.split('=')[0]?.trim();
+      if (name) document.cookie = `${name}=; expires=Thu, 01 Jan 1970 00:00:00 GMT; path=/`;
+    }
+    // Service Workers
+    if (navigator.serviceWorker?.getRegistrations) {
+      const regs = await navigator.serviceWorker.getRegistrations();
+      await Promise.all(regs.map((r) => r.unregister()));
+    }
   });
-  await page.reload();
+  // Park on about:blank so beforeunload listeners on the prior page can't
+  // race-write fresh autoBackup blobs back into localStorage.
+  await page.goto('about:blank');
+  await page.goto('/');
   await page.waitForTimeout(500); // let stores rehydrate
 }
+
+/**
+ * @deprecated Use {@link hardResetDB} — wipes more layers (sessionStorage,
+ *   cookies, Service Workers) so flaky tests don't bleed into each other.
+ *   Kept as alias for back-compat during migration.
+ */
+export const resetDB = hardResetDB;
 
 /**
  * Create a project via the sidebar form. Returns to the new project page.

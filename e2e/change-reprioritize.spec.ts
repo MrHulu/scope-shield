@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { resetDB, createProject, addRequirement, openChangeModal, selectChangeType, selectInDialog, fillDescription, saveChange } from './helpers';
+import { hardResetDB, createProject, addRequirement, openChangeModal, selectChangeType, selectInDialog, fillDescription, saveChange } from './helpers';
 
 test.describe('Change: reprioritize', () => {
   test.beforeEach(async ({ page }) => {
-    await resetDB(page);
+    await hardResetDB(page);
     await createProject(page, 'Reprioritize Project', '2026-04-01');
     await addRequirement(page, '需求A', '3');
     await addRequirement(page, '需求B', '5');
@@ -62,7 +62,7 @@ test.describe('Change: reprioritize', () => {
 // helpers.addRequirement 的「无前置（并行）」会掩盖变化。
 test.describe('Change: reprioritize - schedule impact', () => {
   test.beforeEach(async ({ page }) => {
-    await resetDB(page);
+    await hardResetDB(page);
     await createProject(page, 'Serial Reprio Project', '2026-04-01');
     await addRequirement(page, '需求A', '3');
     await addRequirement(page, '需求B', '5', '需求A');

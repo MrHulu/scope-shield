@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { resetDB, createProject, addRequirement } from './helpers';
+import { hardResetDB, createProject, addRequirement } from './helpers';
 
 test.describe('Drag-and-drop reorder', () => {
   test.beforeEach(async ({ page }) => {
-    await resetDB(page);
+    await hardResetDB(page);
     await createProject(page, 'DnD Project', '2026-04-01');
     await addRequirement(page, '第一需求', '3');
     await addRequirement(page, '第二需求', '5');

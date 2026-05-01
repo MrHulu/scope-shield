@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { resetDB, createProject, addRequirement, openChangeModal, selectChangeType, selectTarget, fillDescription, saveChange } from './helpers';
+import { hardResetDB, createProject, addRequirement, openChangeModal, selectChangeType, selectTarget, fillDescription, saveChange } from './helpers';
 
 test.describe('Change: pause & resume', () => {
   test.beforeEach(async ({ page }) => {
-    await resetDB(page);
+    await hardResetDB(page);
     await createProject(page, 'Pause Project', '2026-04-01');
     await addRequirement(page, '搜索功能', '8');
   });

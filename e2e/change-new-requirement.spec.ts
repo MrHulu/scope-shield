@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { resetDB, createProject, addRequirement, openChangeModal, selectChangeType, fillDescription, saveChange } from './helpers';
+import { hardResetDB, createProject, addRequirement, openChangeModal, selectChangeType, fillDescription, saveChange } from './helpers';
 
 test.describe('Change: new_requirement', () => {
   test.beforeEach(async ({ page }) => {
-    await resetDB(page);
+    await hardResetDB(page);
     await createProject(page, 'NewReq Project', '2026-04-01');
     await addRequirement(page, '基础需求', '5');
   });

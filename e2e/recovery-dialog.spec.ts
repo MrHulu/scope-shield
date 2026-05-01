@@ -1,4 +1,5 @@
 import { test, expect } from '@playwright/test';
+import { hardResetDB } from './helpers';
 
 /**
  * RecoveryDialog only appears when:
@@ -54,33 +55,8 @@ const STUB_BACKUP = {
   },
 };
 
-/**
- * Hard reset: navigate to about:blank first so the running App's beforeunload
- * handler (which calls autoBackup.doBackup → writes localStorage) cannot
- * resurrect a stale backup from the previous test. The async doBackup is
- * aborted by the navigation before exportAllData resolves.
- */
-async function hardWipe(page: import('@playwright/test').Page) {
-  await page.goto('about:blank');
-  await page.goto('/');
-  await page.waitForTimeout(200);
-  await page.evaluate(async () => {
-    const dbs = await indexedDB.databases();
-    await Promise.all(dbs.map((db) => {
-      if (!db.name) return Promise.resolve();
-      return new Promise<void>((resolve) => {
-        const req = indexedDB.deleteDatabase(db.name!);
-        req.onsuccess = () => resolve();
-        req.onerror = () => resolve();
-        req.onblocked = () => setTimeout(resolve, 200);
-      });
-    }));
-    localStorage.clear();
-  });
-}
-
 async function seedBackupAndReload(page: import('@playwright/test').Page) {
-  await hardWipe(page);
+  await hardResetDB(page);
   await page.evaluate((backup) => {
     localStorage.setItem('scope-shield-backup-latest', JSON.stringify(backup));
   }, STUB_BACKUP);
@@ -132,14 +108,14 @@ test.describe('RecoveryDialog: empty DB with localStorage backup', () => {
   });
 
   test('does NOT appear when localStorage has no backup', async ({ page }) => {
-    await hardWipe(page);
+    await hardResetDB(page);
     await page.goto('about:blank');
     await page.goto('/');
     await expect(page.getByRole('alertdialog', { name: '数据恢复' })).not.toBeVisible({ timeout: 3000 });
   });
 
   test('does NOT appear when backup contains zero projects', async ({ page }) => {
-    await hardWipe(page);
+    await hardResetDB(page);
     await page.evaluate(() => {
       localStorage.setItem('scope-shield-backup-latest', JSON.stringify({
         version: '1.0',

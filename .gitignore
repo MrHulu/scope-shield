@@ -20,6 +20,9 @@ scripts/verify-*.ts
 test-results/
 playwright-report/
 
+# vitest coverage output
+coverage/
+
 # Editor directories and files
 .vscode/*
 !.vscode/extensions.json

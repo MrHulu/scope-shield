@@ -135,7 +135,31 @@ export default defineConfig({
   test: {
     globals: true,
     environment: 'node',
-    include: ['src/**/*.test.ts'],
+    include: ['src/**/*.test.ts', 'src/**/*.test.tsx'],
     exclude: ['e2e/**', '**/*.spec.ts', 'node_modules/**', 'dist/**'],
+    setupFiles: ['./src/test/setup.ts'],
+    coverage: {
+      provider: 'v8',
+      reporter: ['text', 'html', 'json-summary', 'lcov'],
+      reportsDirectory: './coverage',
+      include: ['src/**/*.{ts,tsx}'],
+      exclude: [
+        'src/**/*.test.{ts,tsx}',
+        'src/**/__tests__/**',
+        'src/test/**',
+        'src/main.tsx',
+        'src/vite-env.d.ts',
+        'src/types/**',
+      ],
+      // Ratcheting baseline: thresholds set just under 2026-05-01 numbers
+      // (lines 34 / branches 32 / functions 20 / statements 33). Wave 1 will
+      // push these up; raise here whenever a new floor is reached.
+      thresholds: {
+        lines: 30,
+        branches: 30,
+        functions: 18,
+        statements: 30,
+      },
+    },
   },
 })

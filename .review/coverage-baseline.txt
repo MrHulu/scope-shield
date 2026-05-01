@@ -1,0 +1,37 @@
+Scope Shield · Coverage Baseline (2026-05-01)
+==============================================
+Captured immediately after W1.10 infrastructure landed.
+Tooling: vitest 4.1.5 + @vitest/coverage-v8 + fake-indexeddb + jsdom.
+Run: `npx vitest run --coverage` (env=node default).
+
+Tests: 163 total / 161 passed / 2 fixed (importData half-step + daysDelta=0
+       no longer rely on absent IndexedDB; now assert resolves with
+       fake-indexeddb).
+
+Overall coverage:
+  Statements : 33.28% ( 767 / 2304 )
+  Branches   : 32.25% ( 541 / 1677 )
+  Functions  : 20.68% ( 108 /  522 )
+  Lines      : 34.13% ( 678 / 1986 )
+
+vite.config.ts thresholds (CI gate, ratcheting):
+  lines:      30   (-4.13 from baseline = headroom)
+  branches:   30   (-2.25)
+  functions:  18   (-2.68)
+  statements: 30   (-3.28)
+
+Hot zones (0 / 0 / 0 / 0 — Wave 1 prime targets):
+  src/stores/*           (changeStore, projectStore, requirementStore, uiStore)
+  src/hooks/useSchedule.ts
+  src/hooks/useSyncFeishu.ts
+  src/pages/ProjectPage.tsx
+  src/pages/SettingsPage.tsx
+  src/services/feishuSettings.ts
+  src/utils/image.ts
+
+Already strong (>= 75%):
+  src/services/feishuRequirement.ts (77.28% / 82.10%)
+  (engine/* numbers in HTML report — all well-covered by the existing 163 unit suite)
+
+Plan: as W1.7 / W1.8 / W1.11–W1.13 land, raise thresholds in vite.config.ts
+test.coverage.thresholds; document ratchets in this file.

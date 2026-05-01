@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { resetDB, createProject, addRequirement, openChangeModal, selectTarget, fillDescription, saveChange } from './helpers';
+import { hardResetDB, createProject, addRequirement, openChangeModal, selectTarget, fillDescription, saveChange } from './helpers';
 
 test.describe('Chart & Export', () => {
   test.beforeEach(async ({ page }) => {
-    await resetDB(page);
+    await hardResetDB(page);
     await createProject(page, 'Chart Project', '2026-04-01');
     await addRequirement(page, '模块A', '5');
     await addRequirement(page, '模块B', '3');

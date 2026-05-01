@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { resetDB, createProject } from './helpers';
+import { hardResetDB, createProject } from './helpers';
 
 test.describe('Requirement: Feishu URL source', () => {
   test.beforeEach(async ({ page }) => {
-    await resetDB(page);
+    await hardResetDB(page);
     await createProject(page, 'Feishu URL Project', '2026-04-01');
   });
 

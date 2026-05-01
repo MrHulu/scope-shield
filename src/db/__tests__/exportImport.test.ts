@@ -125,12 +125,14 @@ describe('importData validation', () => {
     await expect(importData(data)).rejects.toThrow('currentDays < 0.5');
   });
 
-  it('accepts half-step days', async () => {
+  it('accepts half-step days (no validation throw)', async () => {
     const data = makeValidExport();
     data.projects[0].requirements[0].originalDays = 1.5;
     data.projects[0].requirements[0].currentDays = 2.5;
-    // Should fail at DB access, NOT at validation
-    await expect(importData(data)).rejects.not.toThrow('0.5 的倍数');
+    // Half-step days are valid input — importData must not throw the
+    // "0.5 的倍数" validation message. With fake-indexeddb in setup,
+    // the DB write also succeeds, so we just assert no rejection.
+    await expect(importData(data)).resolves.toBeUndefined();
   });
 
   it('rejects non-number originalDays', async () => {
@@ -175,11 +177,12 @@ describe('importData validation', () => {
     await expect(importData(data)).rejects.toThrow('daysDelta 必须为数字');
   });
 
-  it('allows daysDelta = 0', async () => {
+  it('allows daysDelta = 0 (no validation throw)', async () => {
     const data = makeValidExport();
     data.projects[0].changes[0].daysDelta = 0;
-    // Should fail at DB access, not at daysDelta validation
-    await expect(importData(data)).rejects.not.toThrow('daysDelta');
+    // daysDelta=0 is valid — must not throw "daysDelta" validation. With
+    // fake-indexeddb the DB write also succeeds, so we just assert no rejection.
+    await expect(importData(data)).resolves.toBeUndefined();
   });
 
   // Supplement validation

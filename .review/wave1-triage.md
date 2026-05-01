@@ -14,7 +14,9 @@
 | 飞书未登录场景 | P1-4 | P0-10 | W2 |
 | 测试基础设施（coverage / hardResetDB） | — | infra 1+2 | — |
 
-## Wave 1 推荐 10 项（5.75 工作日预算）
+## Wave 1 推荐 13 项（约 8.25 工作日预算）
+
+> 2026-05-01 update：Boss 反馈"怎么没有新功能"，新增 ✨ 新功能 section（W1.11–W1.13，总 2.5d）。原 10 项保留不变。
 
 ### 🎨 视觉品牌升级（4 项 · 2.25 天）
 
@@ -105,6 +107,29 @@
 - **测试**：跑 `npx vitest run --coverage` 出基线数字（baseline 写入 `.review/coverage-baseline.txt`）
 - **工作量**：S (0.5d)
 
+### ✨ 新功能（3 项 · 2.5 天）
+
+#### W1.11 · 关键路径高亮（Critical Path Highlight）[新增]
+- **位置**: `src/components/chart/SimpleChart.tsx` + `DetailChart.tsx`
+- **目标**：在工期对比图上把"决定项目总工期的依赖链"上的需求做视觉高亮 —— 让老板一眼看出"砍这条链上的需求才能缩短工期"
+- **改动**：`src/engine/scheduler.ts` 已有 `traceCriticalPath()` → `ScheduleResult.criticalPath: string[]`，纯 UI 层加条件渲染（`schedule.criticalPath.includes(req.id)` → 红边框 + flame icon）；图例加"🔥 关键路径"
+- **测试**：unit 已覆盖 traceCriticalPath；e2e 断言含 `[data-critical=true]` 的 bar 数 = criticalPath.length；视觉：critical bars 边框颜色 ≠ 普通 bars
+- **工作量**：S (0.5d)
+
+#### W1.12 · 变更对比导出（Before/After 双图）[新增]
+- **位置**: 新建 `src/components/export/ExportComparison.tsx`；`useExport.ts` 加 `exportComparison()` 方法；ProjectPage 加"对比导出"按钮
+- **目标**：导出"原计划 18 天 vs 实际 23.5 天"双图横拼，老板汇报场景神器
+- **改动**：复用 `ExportRenderer.tsx`，左右各渲染一个 instance（左 baseline 用 originalDays、右 current 用 currentDays），中间加"→ 膨胀 31%"hero 文案；过 `domToPng()` 出图
+- **测试**：unit 测 `computeOriginalTotalDays()` 边界；e2e 点对比导出 → blob.size > 200KB（双图比单图大）+ 文件名含 `comparison`
+- **工作量**：M (1d)
+
+#### W1.13 · ⌘K 命令面板 / 全局搜索 [新增]
+- **位置**: 新建 `src/components/command/CommandPalette.tsx`；`App.tsx` 全局挂载 + ⌘K 监听
+- **目标**：商业级 SaaS 标配 —— ⌘K 打开搜索 modal，跨需求/项目/变更跳转，键盘 ↑↓ 选择 enter 跳转
+- **改动**：modal + input + 实时模糊搜索（fuse.js 或简单 includes），数据源 = `requirementStore.requirements ∪ projectStore.projects ∪ changeStore.changes`，命中 enter → `useNavigate()` 跳转 `/project/:id`；类型 chip 区分（需求/项目/变更）
+- **测试**：unit 测搜索过滤函数；e2e 按 ⌘K 弹 modal、输 "登录" 后命中需求 / "demo" 命中项目、↓ enter 跳转
+- **工作量**：M (1d)
+
 ## 未进 Wave 1 但记入 Wave 2+ 的（避免被遗忘）
 
 | # | 来源 | 项 | 安排 |
@@ -132,7 +157,7 @@
 **请 Boss 拍板**：
 1. Wave 1 这 10 项是否合理？
 2. 工作量预算 5.75 天能接受？
-3. 完成顺序建议：基础设施先（W1.10）→ 视觉打底（W1.1）→ 单测保护新代码（W1.7/W1.8）→ 体验细节（W1.2-1.6）→ journey e2e 收口（W1.9）—— 用不用调？
+3. 完成顺序（Boss 已批"你来决定"，秘书定）：W1.10 infra 先 → W1.1/1.2/1.4/1.5（视觉打底）→ W1.7/1.8（单测保护）→ W1.3/1.6（体验细节 + FAB）→ W1.11/1.12/1.13（新功能）→ W1.9 journey e2e 收口
 4. 是否要先归档当前未提交的 reprioritize/UI 工作（commit boundary），再开 Wave 1？
 
 报告路径：

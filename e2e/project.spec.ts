@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { resetDB, createProject } from './helpers';
+import { hardResetDB, createProject } from './helpers';
 
 test.describe('Project Management', () => {
   test.beforeEach(async ({ page }) => {
-    await resetDB(page);
+    await hardResetDB(page);
   });
 
   test('creates a new project from sidebar', async ({ page }) => {

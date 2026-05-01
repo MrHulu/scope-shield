@@ -1,9 +1,9 @@
 import { test, expect } from '@playwright/test';
-import { resetDB, createProject, addRequirement, goToSettings } from './helpers';
+import { hardResetDB, createProject, addRequirement, goToSettings } from './helpers';
 
 test.describe('Settings: import & export', () => {
   test.beforeEach(async ({ page }) => {
-    await resetDB(page);
+    await hardResetDB(page);
     await createProject(page, 'Export Project', '2026-04-01');
     await addRequirement(page, '导出需求', '5');
   });

@@ -1,5 +1,5 @@
 import { test, expect } from '@playwright/test';
-import { resetDB, createProject, addRequirement } from './helpers';
+import { hardResetDB, createProject, addRequirement } from './helpers';
 
 const KEY_LATEST = 'scope-shield-backup-latest';
 const KEY_PREV = 'scope-shield-backup-previous';
@@ -14,7 +14,7 @@ async function readBackup(page: import('@playwright/test').Page, key: string) {
 
 test.describe('autoBackup: localStorage round-trip', () => {
   test.beforeEach(async ({ page }) => {
-    await resetDB(page);
+    await hardResetDB(page);
   });
 
   test('produces a backup in KEY_LATEST after the debounce window', async ({ page }) => {
