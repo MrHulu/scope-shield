@@ -8,11 +8,22 @@ Tests: 163 total / 161 passed / 2 fixed (importData half-step + daysDelta=0
        no longer rely on absent IndexedDB; now assert resolves with
        fake-indexeddb).
 
-Overall coverage:
+Overall coverage at W1.10 landing:
   Statements : 33.28% ( 767 / 2304 )
   Branches   : 32.25% ( 541 / 1677 )
   Functions  : 20.68% ( 108 /  522 )
   Lines      : 34.13% ( 678 / 1986 )
+
+Wave 1 final (post-W1.13 + W1.9, 200 unit tests):
+  Statements : 32.81% ( 827 / 2520 )
+  Branches   : 31.37% ( 587 / 1871 )
+  Functions  : 20.62% ( 119 /  577 )
+  Lines      : 33.67% ( 729 / 2165 )
+
+Slight ratio dip vs W1.10 baseline because Wave 1 added 4 new untested
+components (CommandPalette, FloatingCTA, ExportComparison, LocalStorageBadge)
+covered by e2e instead of unit. Absolute covered lines went UP (678 → 729).
+80 e2e tests now pass (was 70 baseline).
 
 vite.config.ts thresholds (CI gate, ratcheting):
   lines:      30   (-4.13 from baseline = headroom)

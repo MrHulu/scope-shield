@@ -6,7 +6,9 @@ test.describe('Change: reprioritize', () => {
     await hardResetDB(page);
     await createProject(page, 'Reprioritize Project', '2026-04-01');
     await addRequirement(page, '需求A', '3');
-    await addRequirement(page, '需求B', '5');
+    // B depends on A so that switching B → "no dependency" is a REAL change
+    // (post-W1.6 the modal silently swallows no-op same-dep saves).
+    await addRequirement(page, '需求B', '5', '需求A');
     await addRequirement(page, '需求C', '2');
   });
 

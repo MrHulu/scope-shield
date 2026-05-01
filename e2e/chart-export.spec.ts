@@ -34,9 +34,9 @@ test.describe('Chart & Export', () => {
     const exportBtn = page.getByRole('button', { name: /导出/ });
     if (await exportBtn.isVisible()) {
       await exportBtn.click();
-      // ExportModal uses plain div (no role="dialog"), find it by content
-      const exportModal = page.locator('.fixed.inset-0.z-50');
-      await expect(exportModal).toBeVisible();
+      // Post-W1.1, z-50 was inlined as var(--z-modal). Locate the modal by
+      // its heading text instead of a class.
+      await expect(page.getByText('导出图片').first()).toBeVisible();
       await page.keyboard.press('Escape');
     }
   });

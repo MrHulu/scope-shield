@@ -11,7 +11,15 @@ import { type Page, expect } from '@playwright/test';
  */
 export async function hardResetDB(page: Page) {
   // First land on the app once so we have a same-origin context to nuke.
+  // Wait for the app to settle before evaluating in the page — the bootstrap
+  // can navigate (/ → /project/...) which would invalidate the eval context.
   await page.goto('/');
+  await page.waitForLoadState('domcontentloaded');
+  // Park on about:blank to freeze the page so navigations from prior bootstrap
+  // can't race with our wipe.
+  await page.goto('about:blank');
+  await page.goto('/');
+  await page.waitForLoadState('domcontentloaded');
   await page.evaluate(async () => {
     // IndexedDB — drop every named DB
     const dbs = await indexedDB.databases();
@@ -94,7 +102,10 @@ export async function addRequirement(page: Page, name: string, days: string, dep
  * Open the ChangeModal and fill common fields. Does NOT click save.
  */
 export async function openChangeModal(page: Page) {
-  await page.getByRole('button', { name: '记录变更' }).click();
+  // Use exact:true so this picks ONLY the ChangeList header button — the
+  // floating CTA carries aria-label "记录变更（⌘⇧C）" which would otherwise
+  // be ambiguous (strict-mode violation).
+  await page.getByRole('button', { name: '记录变更', exact: true }).click();
   await expect(page.getByRole('dialog')).toBeVisible();
 }
 

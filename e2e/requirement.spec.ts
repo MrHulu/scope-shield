@@ -92,9 +92,10 @@ test.describe('Requirement Management', () => {
     // Verify both exist
     await expect(page.getByText('Req A')).toBeVisible();
     await expect(page.getByText('Req B')).toBeVisible();
-    // With parallel scheduling (no dependencies), total = max(5, 3) = 5 days
-    // Stats card shows "原始工期" with value "5天"
-    const card = page.locator('.bg-gray-50').filter({ has: page.getByText('原始工期') });
+    // With parallel scheduling (no dependencies), total = max(5, 3) = 5 days.
+    // StatsCard now renders as .glass-panel rather than .bg-gray-50; locate
+    // by the label and assert the value sibling.
+    const card = page.locator('div').filter({ has: page.getByText('原始工期', { exact: true }) }).first();
     await expect(card).toContainText('5天');
   });
 });

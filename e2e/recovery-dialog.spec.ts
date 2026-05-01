@@ -55,14 +55,42 @@ const STUB_BACKUP = {
   },
 };
 
+/**
+ * Recovery dialog only fires when IDB is empty AND a backup blob is present.
+ * hardResetDB lets the App boot and re-seed demo data, which defeats this
+ * test, so we do the wipe + backup-inject inline against an already-loaded
+ * page (after the App has finished its first boot, we wipe + reload while
+ * the second-boot path picks up the backup).
+ */
 async function seedBackupAndReload(page: import('@playwright/test').Page) {
-  await hardResetDB(page);
-  await page.evaluate((backup) => {
+  // First, give the app one full boot so we have a same-origin context.
+  await page.goto('/');
+  await page.waitForLoadState('domcontentloaded');
+  // Park to silence any beforeunload race during the wipe.
+  await page.goto('about:blank');
+  await page.goto('/');
+  await page.waitForTimeout(200);
+  // Wipe IDB + localStorage in one go, then immediately inject the backup
+  // blob into localStorage. We do NOT navigate between wipe and inject so
+  // there's no chance for the App to re-seed in the gap.
+  await page.evaluate(async (backup) => {
+    const dbs = await indexedDB.databases();
+    await Promise.all(
+      dbs.map(
+        (db) =>
+          new Promise<void>((resolve) => {
+            if (!db.name) return resolve();
+            const req = indexedDB.deleteDatabase(db.name);
+            req.onsuccess = req.onerror = () => resolve();
+            req.onblocked = () => setTimeout(resolve, 200);
+          }),
+      ),
+    );
+    localStorage.clear();
     localStorage.setItem('scope-shield-backup-latest', JSON.stringify(backup));
   }, STUB_BACKUP);
-  // Use about:blank → / round-trip again instead of reload(): a plain reload
-  // re-fires beforeunload, which would let any race between our wipe and the
-  // running App overwrite our injected backup.
+  // about:blank → / round-trip again so the App's beforeunload doesn't fire
+  // a fresh autoBackup that would clobber our injected blob.
   await page.goto('about:blank');
   await page.goto('/');
   await expect(page.getByRole('alertdialog', { name: '数据恢复' })).toBeVisible({

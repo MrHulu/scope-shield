@@ -67,8 +67,10 @@ test.describe('Change: add_days', () => {
     await openChangeModal(page);
     const dialog = page.getByRole('dialog');
     await expect(dialog).toBeVisible();
-    // Click the backdrop (outside the dialog box)
-    await page.locator('.fixed.inset-0.z-50').click({ position: { x: 10, y: 10 } });
+    // Backdrop class shape changed (z-50 was inlined as var(--z-modal) post W1.1).
+    // Use the structural shape: the backdrop is a sibling-less fixed-inset div
+    // whose only child is the dialog. Click the corner outside the dialog.
+    await page.locator('.fixed.inset-0').first().click({ position: { x: 10, y: 10 } });
     await expect(dialog).toBeHidden();
   });
 });

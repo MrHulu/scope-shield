@@ -13,8 +13,9 @@ test.describe('Gantt chart after reorder', () => {
     await addRequirement(page, '需求B', '3');
     await addRequirement(page, '需求C', '4');
 
-    // Check initial state - scroll to chart area
-    await page.getByRole('button', { name: '详细版' }).click();
+    // Check initial state - scroll to chart area. Post-W1.4 the chart tabs
+    // became proper ARIA tabs.
+    await page.getByRole('tab', { name: '详细版' }).click();
     await expect(page.getByText('原计划 5天 → 实际 5天')).toBeVisible();
 
     // Drag to reorder first requirement to last position
