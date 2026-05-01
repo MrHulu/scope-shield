@@ -23,6 +23,8 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
   const [source, setSource] = useState<CreateRequirementInput['source']>(null);
   const [analyzing, setAnalyzing] = useState(false);
   const [sourceHint, setSourceHint] = useState<string | null>(null);
+  const [needsLogin, setNeedsLogin] = useState(false);
+  const [loggingIn, setLoggingIn] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const analyzeSeqRef = useRef(0);
   const activeAnalyzeSeqRef = useRef<number | null>(null);
@@ -36,6 +38,7 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
 
     setAnalyzing(true);
     setSourceHint(null);
+    setNeedsLogin(false);
     setErrors((prev) => {
       const next = { ...prev };
       delete next.sourceUrl;
@@ -54,12 +57,12 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
       const scheduleText = draft.source.startDate || draft.source.endDate
         ? ` · ${draft.source.startDate ?? '?'} 至 ${draft.source.endDate ?? '?'}`
         : '';
+      const fetched = draft.status === 'fetched';
+      setNeedsLogin(!fetched);
       setSourceHint(
-        draft.status === 'fetched'
+        fetched
           ? `已从飞书读取需求信息${ownerText}${scheduleText}`
-          : draft.error
-            ? `${draft.error}；已保留 URL 来源，可手动填写并保存`
-            : '已解析 URL；代理不可用时可手动填写并保存来源',
+          : '飞书未登录，登录后会自动拉取需求信息',
       );
     } catch (err) {
       if (seq !== analyzeSeqRef.current || sourceUrlRef.current.trim() !== trimmedUrl) return;
@@ -72,6 +75,32 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
         activeAnalyzeSeqRef.current = null;
         setAnalyzing(false);
       }
+    }
+  };
+
+  const handleFeishuLogin = async () => {
+    setLoggingIn(true);
+    setErrors((prev) => {
+      const next = { ...prev };
+      delete next.sourceUrl;
+      return next;
+    });
+    try {
+      const resp = await fetch('/__feishu/login', { method: 'POST' });
+      const json = await resp.json().catch(() => ({ ok: resp.ok }));
+      if (!resp.ok || !json.ok) {
+        throw new Error(json.error || `HTTP ${resp.status}`);
+      }
+      setLoggingIn(false);
+      setNeedsLogin(false);
+      // 登录成功 → 自动重新解析当前 URL，自动回填字段
+      void handleAnalyzeUrl();
+    } catch (err) {
+      setLoggingIn(false);
+      setErrors((prev) => ({
+        ...prev,
+        sourceUrl: `登录失败：${(err as Error).message}`,
+      }));
     }
   };
 
@@ -156,9 +185,28 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
             </button>
           </div>
           {(sourceHint || errors.sourceUrl) && (
-            <p className={`text-xs mt-1 ${errors.sourceUrl ? 'text-red-500' : 'text-blue-600'}`}>
-              {errors.sourceUrl ?? sourceHint}
-            </p>
+            <div className="mt-1 flex items-center gap-2 flex-wrap">
+              <p className={`text-xs ${errors.sourceUrl ? 'text-red-500' : needsLogin ? 'text-amber-700' : 'text-blue-600'}`}>
+                {errors.sourceUrl ?? sourceHint}
+              </p>
+              {needsLogin && !errors.sourceUrl && (
+                <button
+                  type="button"
+                  onClick={handleFeishuLogin}
+                  disabled={loggingIn}
+                  className="inline-flex items-center gap-1 text-[11px] font-medium text-amber-800 bg-amber-50 border border-amber-300 hover:bg-amber-100 disabled:opacity-60 disabled:cursor-wait px-2 py-0.5 rounded"
+                >
+                  {loggingIn ? (
+                    <>
+                      <span className="inline-block w-2.5 h-2.5 border-[1.5px] border-amber-700 border-t-transparent rounded-full animate-spin" />
+                      请在弹出窗口扫码…
+                    </>
+                  ) : (
+                    <>🔓 一键登录</>
+                  )}
+                </button>
+              )}
+            </div>
           )}
         </div>
         <div className="flex gap-2">

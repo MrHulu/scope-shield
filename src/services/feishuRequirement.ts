@@ -142,7 +142,14 @@ export function mapFeishuWorkItemToDraft(raw: unknown, sourceUrl: string): Requi
     getValue(fields, ['story_points']),
     getValue(fields, ['dev_days']),
     getValue(fields, ['工期']),
-  ]);
+  ]) ?? inferEstimateByKeyword(fields) ?? inferEstimateByKeyword(item);
+
+  if (estimate === null && import.meta?.env?.DEV) {
+    // 帮排查飞书自定义字段名 — 拿不到工期时把字段表打到浏览器 console
+    // eslint-disable-next-line no-console
+    console.info('[feishu] estimate not found. item keys:', Object.keys(item),
+      'field keys:', Object.keys(fields), 'sample fields:', fields);
+  }
 
   const ownerNames = uniqueStrings([
     ...extractNames(getValue(item, ['owner'])),
@@ -192,7 +199,7 @@ export async function analyzeFeishuRequirementUrl(
   const source = buildFeishuRequirementSource(url);
 
   if (!source.projectKey || !source.workItemTypeKey || !source.workItemId) {
-    return { name: '', originalDays: null, source, status: 'url_only' };
+    return urlOnlyDraft(source);
   }
 
   const fetcher = options.fetcher ?? fetch;
@@ -232,6 +239,7 @@ function mapDemandFetchToDraft(json: unknown, source: RequirementSource): Requir
 
   const bizWorkItem = extractBizWorkItem(data);
   const fieldMap = extractFieldValueMap(data);
+  const nodeSchedule = extractScheduleFromNodes(data);
 
   const name =
     firstString([
@@ -239,26 +247,50 @@ function mapDemandFetchToDraft(json: unknown, source: RequirementSource): Requir
       fieldMap.name, fieldMap.title, fieldMap.summary,
     ]) ?? '';
 
-  const estimate = firstNumber([
-    bizWorkItem.estimate, bizWorkItem.story_points, bizWorkItem.estimated_days,
-    fieldMap.estimate, fieldMap.estimated_days, fieldMap.story_points, fieldMap.dev_days,
-  ]);
+  const estimate =
+    firstNumber([
+      bizWorkItem.estimate, bizWorkItem.story_points, bizWorkItem.estimated_days,
+      fieldMap.estimate, fieldMap.estimated_days, fieldMap.story_points, fieldMap.dev_days,
+    ])
+    ?? nodeSchedule.points
+    ?? inferEstimateByKeyword(fieldMap)
+    ?? inferEstimateByKeyword(bizWorkItem);
+
+  // 取"当前实现节点的负责人"，按精度从高到低分层：
+  //   1. workitem.current_status_operator（飞书直接给的当前状态操作人）
+  //   2. node[doing].owner.value → role_key → workitem.role_owners[role].owners
+  //   3. 最后回退到 workitem.owner / assignee / fieldMap.owner / assignee
+  const currentNodeOwners = extractNames(bizWorkItem.current_status_operator);
+  const roleBasedOwners = currentNodeOwners.length === 0
+    ? extractCurrentNodeOwnersByRole(data, bizWorkItem)
+    : [];
+  const legacyOwners = currentNodeOwners.length === 0 && roleBasedOwners.length === 0
+    ? [
+        ...extractNames(bizWorkItem.owner),
+        ...extractNames(bizWorkItem.assignee),
+        ...extractNames(fieldMap.owner),
+        ...extractNames(fieldMap.assignee),
+      ]
+    : [];
 
   const ownerNames = uniqueStrings([
-    ...extractNames(bizWorkItem.owner),
-    ...extractNames(bizWorkItem.assignee),
-    ...extractNames(fieldMap.owner),
-    ...extractNames(fieldMap.assignee),
+    ...currentNodeOwners,
+    ...roleBasedOwners,
+    ...legacyOwners,
   ]);
 
-  const startDate = firstIsoDate([
-    bizWorkItem.start_date, bizWorkItem.start_time,
-    fieldMap.start_date, fieldMap.plan_start,
-  ]);
-  const endDate = firstIsoDate([
-    bizWorkItem.end_date, bizWorkItem.due_date,
-    fieldMap.end_date, fieldMap.due_date, fieldMap.deadline, fieldMap.plan_end,
-  ]);
+  const startDate =
+    firstIsoDate([
+      bizWorkItem.start_date, bizWorkItem.start_time,
+      fieldMap.start_date, fieldMap.plan_start,
+    ])
+    ?? msToIsoDate(nodeSchedule.startMs);
+  const endDate =
+    firstIsoDate([
+      bizWorkItem.end_date, bizWorkItem.due_date,
+      fieldMap.end_date, fieldMap.due_date, fieldMap.deadline, fieldMap.plan_end,
+    ])
+    ?? msToIsoDate(nodeSchedule.endMs);
 
   const enrichedSource: RequirementSource = {
     ...source,
@@ -287,6 +319,98 @@ function extractBizWorkItem(data: Record<string, unknown>): Record<string, unkno
     (entry: unknown) => asRecord(entry)?.key === 'workitem',
   );
   return asRecord(asRecord(workitemEntry)?.value) ?? {};
+}
+
+/**
+ * 飞书 Project demand_fetch 把工期 / 排期信息放在 biz_data 里 key='node' 的
+ * 流程节点上（而不是 workitem 主体）。每个节点有 work_hour.attributes 或
+ * scheduleV3.attributes，包含 points (工时数值) + schedule_start/end (排期时间)。
+ * 取第一个 points >= 0.5 的节点视为该需求的主排期。
+ */
+function extractScheduleFromNodes(
+  data: Record<string, unknown>,
+): { points: number | null; startMs: number | null; endMs: number | null } {
+  const bizData = Array.isArray(data.biz_data) ? data.biz_data : [];
+  for (const entry of bizData) {
+    const rec = asRecord(entry);
+    if (!rec || rec.key !== 'node') continue;
+    const value = asRecord(rec.value) ?? {};
+    const workHourAttrs = asRecord(
+      asRecord(asRecord(value.data)?.work_hour)?.attributes,
+    );
+    const scheduleV3Attrs = asRecord(asRecord(value.scheduleV3)?.attributes);
+    const attrs = workHourAttrs ?? scheduleV3Attrs;
+    if (!attrs) continue;
+    const pointsValue = asRecord(attrs.points)?.value;
+    const points =
+      typeof pointsValue === 'number'
+        ? pointsValue
+        : typeof pointsValue === 'string'
+          ? Number(pointsValue)
+          : NaN;
+    if (!Number.isFinite(points) || points < 0.5) continue;
+    const startMs = Number(asRecord(attrs.schedule_start)?.timestamp_in_ms);
+    const endMs = Number(asRecord(attrs.schedule_end)?.timestamp_in_ms);
+    return {
+      points,
+      startMs: Number.isFinite(startMs) ? startMs : null,
+      endMs: Number.isFinite(endMs) ? endMs : null,
+    };
+  }
+  return { points: null, startMs: null, endMs: null };
+}
+
+/**
+ * 兜底：从 biz_data 里的 node entries 找当前流程节点（uuid 含 "doing" 或最后一个
+ * 非 archived 节点），解析它的 owner.value JSON → role_key → 在 workitem.role_owners
+ * 中查那个 role 的 owners。仅当 workitem.current_status_operator 为空时调用。
+ */
+function extractCurrentNodeOwnersByRole(
+  data: Record<string, unknown>,
+  bizWorkItem: Record<string, unknown>,
+): string[] {
+  const bizData = Array.isArray(data.biz_data) ? data.biz_data : [];
+  const nodes = bizData
+    .map((e: unknown) => asRecord(e))
+    .filter((rec): rec is Record<string, unknown> => rec?.key === 'node');
+
+  // 优先 doing 节点；否则取最后一个 node（流程末尾）
+  const doingNode = nodes.find((n) => String(n.uuid ?? '').includes('doing'));
+  const targetNode = doingNode ?? nodes[nodes.length - 1];
+  if (!targetNode) return [];
+
+  const ownerField = asRecord(asRecord(targetNode.value)?.owner);
+  const ownerValueRaw = ownerField?.value;
+  let roleKeys: string[] = [];
+  if (typeof ownerValueRaw === 'string') {
+    try {
+      const parsed = JSON.parse(ownerValueRaw);
+      const roles = asRecord(parsed)?.roles;
+      if (Array.isArray(roles)) {
+        roleKeys = roles.filter((r): r is string => typeof r === 'string');
+      }
+    } catch { /* malformed JSON — ignore */ }
+  }
+  if (roleKeys.length === 0) return [];
+
+  const roleOwners = Array.isArray(bizWorkItem.role_owners) ? bizWorkItem.role_owners : [];
+  const names: string[] = [];
+  for (const entry of roleOwners) {
+    const rec = asRecord(entry);
+    const role = typeof rec?.role === 'string' ? rec.role : undefined;
+    if (!role || !roleKeys.includes(role)) continue;
+    names.push(...extractNames(rec.owners));
+  }
+  return names;
+}
+
+function msToIsoDate(ms: number | null): string | null {
+  if (ms === null || !Number.isFinite(ms)) return null;
+  try {
+    return new Date(ms).toISOString().slice(0, 10);
+  } catch {
+    return null;
+  }
 }
 
 function extractFieldValueMap(data: Record<string, unknown>): Record<string, unknown> {
@@ -410,6 +534,30 @@ function firstString(values: unknown[]): string | null {
   return null;
 }
 
+/**
+ * 兜底：扫描所有字段，找名字包含工期关键词且值为正数的字段。
+ * 飞书 Project 自定义字段名各家不同，写死匹配很难覆盖；
+ * 此函数只在精确匹配失败时调用，避免误中字段（如 `created_day`）。
+ */
+function inferEstimateByKeyword(source: Record<string, unknown>): number | null {
+  const RE = /(estimate|estimat|day|hour|point|effort|workload|man[_-]?day|工[期时]|天数|工时|预估|排期)/i;
+  for (const [key, raw] of Object.entries(source)) {
+    if (!RE.test(key)) continue;
+    // value 可能是数字、字符串、或 {value: ..., display_value: ...} 包装
+    const candidates: unknown[] = [raw];
+    const rec = asRecord(raw);
+    if (rec) {
+      candidates.push(rec.value, rec.display_value, rec.raw_value, rec.number_value);
+    }
+    for (const v of candidates) {
+      const n = typeof v === 'number' ? v : typeof v === 'string' ? Number(v) : NaN;
+      // 合理的工期范围：0.5 天 ~ 365 天
+      if (Number.isFinite(n) && n >= 0.5 && n <= 365) return n;
+    }
+  }
+  return null;
+}
+
 function firstNumber(values: unknown[]): number | null {
   for (const value of values) {
     const n = typeof value === 'number' ? value : typeof value === 'string' ? Number(value) : NaN;
@@ -467,8 +615,10 @@ export function normalizeFeishuApiBaseUrl(input?: string): string {
 }
 
 function urlOnlyDraft(source: RequirementSource, error?: string): RequirementDraft {
+  // 未登录时给一个占位名（仅 workItemId）— projectKey 推断容易误判，不拼进来
+  const placeholderName = source.workItemId ? `飞书需求 #${source.workItemId}` : '';
   return {
-    name: '',
+    name: placeholderName,
     originalDays: null,
     source,
     status: 'url_only',

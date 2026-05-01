@@ -14,7 +14,8 @@ test.describe('Requirement: Feishu URL source', () => {
     );
     await page.getByRole('button', { name: '解析' }).click();
 
-    await expect(page.getByText(/已解析 URL|已保留 URL 来源/)).toBeVisible();
+    // url-only fallback hint when proxy is unavailable in tests
+    await expect(page.getByText(/飞书未登录|已解析 URL|已保留 URL 来源/)).toBeVisible();
 
     await page.getByPlaceholder('需求名称').fill('支付重构');
     await page.getByPlaceholder('天数').fill('3');

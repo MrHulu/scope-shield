@@ -143,9 +143,9 @@ export function SettingsPage() {
             </button>
           </div>
           {proxyOk === false && (
-            <div className="px-6 pb-4">
+            <div className="px-6 pb-4 -mt-1">
               <p className="text-xs text-gray-400">
-                需要 <code className="bg-gray-100 px-1 rounded">npm run dev</code> 启动开发服务器，并确保本地浏览器 Cookie 有效。
+                未登录时不影响录入需求 · 添加需求时粘贴飞书 URL 会出现「一键登录」按钮
               </p>
             </div>
           )}
