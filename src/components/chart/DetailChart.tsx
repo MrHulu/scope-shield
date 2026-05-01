@@ -100,34 +100,11 @@ function buildGanttRows(
 ): GanttRow[] {
   const schedMap = new Map(schedule.requirementSchedules.map((s) => [s.requirementId, s]));
 
-  // Build map of first change date for each requirement
-  // This aligns gantt y-axis with timeline chronological order
-  const firstChangeDateMap = new Map<string, string>();
-  for (const c of changes) {
-    if (!c.targetRequirementId) continue;
-    const existing = firstChangeDateMap.get(c.targetRequirementId);
-    if (!existing || c.date < existing) {
-      firstChangeDateMap.set(c.targetRequirementId, c.date);
-    }
-  }
-
-  // Sort by first change date (timeline order), then by sortOrder (stable tiebreaker)
-  const sorted = [...requirements].sort((a, b) => {
-    const aFirstChange = firstChangeDateMap.get(a.id);
-    const bFirstChange = firstChangeDateMap.get(b.id);
-
-    // Requirements with no changes come first (in sortOrder)
-    if (!aFirstChange && !bFirstChange) return a.sortOrder - b.sortOrder;
-    if (!aFirstChange) return -1; // a has no changes, comes first
-    if (!bFirstChange) return 1;  // b has no changes, comes first
-
-    // Both have changes, sort by first change date
-    const dateCompare = aFirstChange.localeCompare(bFirstChange);
-    if (dateCompare !== 0) return dateCompare;
-
-    // Same first change date, use sortOrder as tiebreaker
-    return a.sortOrder - b.sortOrder;
-  });
+  // Y 轴顺序跟需求列表（useRequirements）保持一致 — 都按 sortOrder 升序。
+  // 用户在列表里看到的顺序 = 图表里看到的顺序，最直观。
+  // 早期版本曾按 "first change date" 排序，导致没 change 涉及的需求（比如刚直接
+  // 添加的）反而显示在最前面，跟列表顺序不一致。
+  const sorted = [...requirements].sort((a, b) => a.sortOrder - b.sortOrder);
 
   const changesByReq = new Map<string, Change[]>();
   for (const c of changes) {
