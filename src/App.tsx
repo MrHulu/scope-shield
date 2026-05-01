@@ -9,6 +9,7 @@ import { SettingsPage } from './pages/SettingsPage';
 import { NotFoundRedirect } from './pages/NotFoundRedirect';
 import { ToastContainer, showToast } from './components/shared/Toast';
 import { RecoveryDialog } from './components/shared/RecoveryDialog';
+import { CommandPalette } from './components/command/CommandPalette';
 import { seedDemoData } from './db/seedDemo';
 import { cleanupOldNames } from './db/personNameRepo';
 import { getLatestBackup, startAutoBackup } from './db/autoBackup';
@@ -124,6 +125,7 @@ export default function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Route>
       </Routes>
+      <CommandPalette />
       <ToastContainer />
     </BrowserRouter>
   );

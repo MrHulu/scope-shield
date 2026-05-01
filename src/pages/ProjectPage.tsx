@@ -12,8 +12,9 @@ import { FloatingCTA } from '../components/project/FloatingCTA';
 import { RequirementList } from '../components/requirement/RequirementList';
 import { ChartArea } from '../components/chart/ChartArea';
 import { ChangeList } from '../components/change/ChangeList';
-import { ExportModal } from '../components/chart/ExportModal';
+import { ExportModal, type ExportMode } from '../components/chart/ExportModal';
 import { ExportRenderer } from '../components/export/ExportRenderer';
+import { ExportComparison } from '../components/export/ExportComparison';
 import { showToast } from '../components/shared/Toast';
 
 export function ProjectPage() {
@@ -68,20 +69,25 @@ export function ProjectPage() {
   // Export
   const [showExportModal, setShowExportModal] = useState(false);
   const [exportWidth, setExportWidth] = useState<number | null>(null);
+  const [exportMode, setExportMode] = useState<ExportMode>('single');
   const { exportPng, exporting, error: exportError } = useExport();
   const exportContainerRef = useRef<HTMLDivElement>(null);
 
   const handleExport = useCallback(
-    async (width: number) => {
+    async (width: number, mode: ExportMode) => {
       setExportWidth(width);
+      setExportMode(mode);
       setShowExportModal(false);
 
-      // Wait for render
-      await new Promise((r) => requestAnimationFrame(() => setTimeout(r, 100)));
+      // Wait for render — comparison renders 2 ExportRenderer instances so
+      // it needs a touch more time to settle.
+      const settleMs = mode === 'comparison' ? 200 : 100;
+      await new Promise((r) => requestAnimationFrame(() => setTimeout(r, settleMs)));
 
+      const baseName = project?.name ?? 'project';
       await exportPng('scope-shield-export', {
         width,
-        projectName: project?.name ?? 'project',
+        projectName: mode === 'comparison' ? `${baseName}-comparison` : baseName,
       });
 
       setExportWidth(null);
@@ -174,15 +180,27 @@ export function ProjectPage() {
           }}
         >
           <div id="scope-shield-export">
-            <ExportRenderer
-              projectName={project.name}
-              requirements={requirements}
-              changes={changes}
-              schedule={scheduleResult}
-              stats={fullStats}
-              chartTab={chartTab}
-              width={exportWidth}
-            />
+            {exportMode === 'comparison' ? (
+              <ExportComparison
+                projectName={project.name}
+                requirements={requirements}
+                changes={changes}
+                schedule={scheduleResult}
+                stats={fullStats}
+                chartTab={chartTab}
+                width={exportWidth}
+              />
+            ) : (
+              <ExportRenderer
+                projectName={project.name}
+                requirements={requirements}
+                changes={changes}
+                schedule={scheduleResult}
+                stats={fullStats}
+                chartTab={chartTab}
+                width={exportWidth}
+              />
+            )}
           </div>
         </div>
       )}

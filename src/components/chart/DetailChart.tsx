@@ -207,7 +207,8 @@ export function DetailChart({
 
   const timelineH = timeline.length > 0 ? timeline.length * TL_LINE_H + 16 : 36;
   const ganttH = ganttRows.length * (ROW_H + ROW_GAP);
-  const summaryH = 28;
+  // Bottom summary — give it extra room when the critical-path hint shows.
+  const summaryH = 28 + (schedule.criticalPath.length > 0 ? 18 : 0);
   const totalH = timelineH + 12 + ganttH + 16 + summaryH;
 
   const changeCount = changes.filter((c) => c.daysDelta !== 0).length;
@@ -296,12 +297,24 @@ export function DetailChart({
             const y = i * (ROW_H + ROW_GAP);
             const sched = row.scheduleItem;
             const startX = sched ? dayToX(sched.startDay) : BAR_START;
+            // Critical path = the dependency chain that determines totalDays.
+            // We outline these rows in red and prepend 🔥 so the user can see
+            // at a glance which reqs to cut/parallelize for fastest impact.
+            const isCritical =
+              !row.isCancelled &&
+              !row.isPaused &&
+              schedule.criticalPath.includes(row.requirement.id);
 
             if (row.isNew) {
               const w = dayToW(row.requirement.currentDays);
               const timeLabel = sched ? `@D${sched.startDay}` : '';
               return (
-                <g key={row.requirement.id} transform={`translate(0, ${y})`}>
+                <g
+                  key={row.requirement.id}
+                  transform={`translate(0, ${y})`}
+                  data-critical={isCritical || undefined}
+                  data-req-id={row.requirement.id}
+                >
                   <text
                     x={LABEL_W - 4}
                     y={ROW_H / 2 + 4}
@@ -310,6 +323,7 @@ export function DetailChart({
                     fill={row.isCancelled ? '#9CA3AF' : '#374151'}
                     textDecoration={row.isCancelled ? 'line-through' : 'none'}
                   >
+                    {isCritical && <tspan fill="#DC2626"> 🔥</tspan>}
                     {row.requirement.name}
                     {timeLabel && <tspan fill="#9CA3AF" fontSize={9}> {timeLabel}</tspan>}
                   </text>
@@ -322,6 +336,18 @@ export function DetailChart({
                     fill={newReqColor}
                     opacity={0.85}
                   />
+                  {isCritical && (
+                    <rect
+                      x={startX - 1}
+                      y={1}
+                      width={w + 2}
+                      height={ROW_H - 2}
+                      rx={5}
+                      fill="none"
+                      stroke="#DC2626"
+                      strokeWidth={1.5}
+                    />
+                  )}
                   <text
                     x={startX + w + 6}
                     y={ROW_H / 2 + 4}
@@ -337,8 +363,15 @@ export function DetailChart({
             const origW = dayToW(row.originalWidth);
             const timeLabel = sched ? `@D${sched.startDay}` : '';
 
+            const totalRowW = origW + row.segments.reduce((a, s) => a + dayToW(s.widthDays), 0);
+
             return (
-              <g key={row.requirement.id} transform={`translate(0, ${y})`}>
+              <g
+                key={row.requirement.id}
+                transform={`translate(0, ${y})`}
+                data-critical={isCritical || undefined}
+                data-req-id={row.requirement.id}
+              >
                 {/* Req name with time label */}
                 <text
                   x={LABEL_W - 4}
@@ -348,6 +381,7 @@ export function DetailChart({
                   fill={row.isCancelled || row.isPaused ? '#9CA3AF' : '#374151'}
                   textDecoration={row.isCancelled ? 'line-through' : 'none'}
                 >
+                  {isCritical && <tspan fill="#DC2626"> 🔥</tspan>}
                   {row.requirement.name}
                   {row.isPaused && ' ⏸'}
                   {timeLabel && <tspan fill="#9CA3AF" fontSize={9}> {timeLabel}</tspan>}
@@ -363,6 +397,22 @@ export function DetailChart({
                   fill={row.isCancelled ? '#D1D5DB' : planColor}
                   opacity={row.isPaused ? 0.4 : 0.85}
                 />
+
+                {/* Critical-path outline — wraps the full row including any
+                    change segments so the visual still reads when bars are
+                    extended by add_days etc. */}
+                {isCritical && (
+                  <rect
+                    x={startX - 1}
+                    y={1}
+                    width={totalRowW + 2}
+                    height={ROW_H - 2}
+                    rx={5}
+                    fill="none"
+                    stroke="#DC2626"
+                    strokeWidth={1.5}
+                  />
+                )}
 
                 {/* Cancelled overlay line */}
                 {row.isCancelled && (
@@ -447,6 +497,11 @@ export function DetailChart({
             原计划 {originalTotalDays}天 → 实际 {totalDays}天 · {changeCount}次变更
             {roleSummary ? ` · ${roleSummary}` : ''}
           </text>
+          {schedule.criticalPath.length > 0 && (
+            <text x={0} y={30} fontSize={10} fill="#DC2626">
+              🔥 关键路径 {schedule.criticalPath.length} 项 · 决定项目工期，缩短任一项即可整体提前
+            </text>
+          )}
         </g>
       </svg>
     </div>
