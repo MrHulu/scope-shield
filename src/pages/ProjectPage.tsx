@@ -112,7 +112,19 @@ export function ProjectPage() {
           onRestore={() => restoreProject(project.id)}
         />
 
-        <div className="mt-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+        {/* Chart first — primary visual that should land in first-screen viewport */}
+        <div className="mt-4 glass-panel glass-panel-hover rounded-2xl">
+          <ChartArea
+            requirements={requirements}
+            changes={changes}
+            schedule={scheduleResult}
+            isArchived={isArchived}
+            onExport={() => setShowExportModal(true)}
+            stats={fullStats}
+          />
+        </div>
+
+        <div className="mt-4 glass-panel glass-panel-hover rounded-2xl">
           <RequirementList
             projectId={project.id}
             requirements={requirements}
@@ -127,7 +139,7 @@ export function ProjectPage() {
           />
         </div>
 
-        <div className="mt-4 bg-white rounded-xl border border-gray-200 shadow-sm">
+        <div className="mt-4 glass-panel glass-panel-hover rounded-2xl">
           <ChangeList
             projectId={project.id}
             changes={changes}
@@ -136,16 +148,6 @@ export function ProjectPage() {
             onRecord={recordChange}
             onUpdate={updateChange}
             onDelete={deleteChange}
-          />
-        </div>
-
-        <div className="mt-4 bg-white rounded-xl border border-gray-200 shadow-sm">
-          <ChartArea
-            requirements={requirements}
-            changes={changes}
-            schedule={scheduleResult}
-            isArchived={isArchived}
-            onExport={() => setShowExportModal(true)}
           />
         </div>
       </div>
