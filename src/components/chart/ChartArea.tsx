@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react';
-import { Download, Maximize2, Minimize2 } from 'lucide-react';
+import { Download, Maximize2, Minimize2, Play } from 'lucide-react';
 import type { Change, ProjectStats, Requirement, ScheduleResult } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
 import { SimpleChart } from './SimpleChart';
 import { DetailChart } from './DetailChart';
+import { ReplayPlayer } from '../replay/ReplayPlayer';
 
 interface ChartAreaProps {
   requirements: Requirement[];
@@ -13,12 +14,15 @@ interface ChartAreaProps {
   onExport: () => void;
   /** Optional — when present, render the title's data-driven subtitle. */
   stats?: ProjectStats;
+  /** Optional — when present, enable W4.3 replay button. */
+  projectId?: string;
 }
 
-export function ChartArea({ requirements, changes, schedule, onExport, stats }: ChartAreaProps) {
+export function ChartArea({ requirements, changes, schedule, onExport, stats, projectId }: ChartAreaProps) {
   const chartTab = useUIStore((s) => s.chartTab);
   const setChartTab = useUIStore((s) => s.setChartTab);
   const [fullscreen, setFullscreen] = useState(false);
+  const [replayOpen, setReplayOpen] = useState(false);
 
   // W3.9 — Esc closes fullscreen.
   useEffect(() => {
@@ -92,6 +96,20 @@ export function ChartArea({ requirements, changes, schedule, onExport, stats }: 
             导出图片
           </button>
 
+          {projectId && (
+            <button
+              type="button"
+              onClick={() => setReplayOpen(true)}
+              disabled={!hasRequirements}
+              className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100/70 px-2 py-1 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+              title="按时间线回放每次变更后的工期变化"
+              data-testid="replay-trigger"
+            >
+              <Play size={12} />
+              回放
+            </button>
+          )}
+
           <button
             type="button"
             onClick={() => setFullscreen((v) => !v)}
@@ -121,6 +139,16 @@ export function ChartArea({ requirements, changes, schedule, onExport, stats }: 
           />
         )}
       </div>
+
+      {projectId && (
+        <ReplayPlayer
+          open={replayOpen}
+          projectId={projectId}
+          requirements={requirements}
+          changes={changes}
+          onClose={() => setReplayOpen(false)}
+        />
+      )}
 
       {/* W3.9 — Fullscreen overlay. Re-renders the same chart at viewport
           scale; Esc closes (handled in the effect above). */}

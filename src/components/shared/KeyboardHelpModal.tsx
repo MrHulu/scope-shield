@@ -108,7 +108,11 @@ export function KeyboardHelpModal() {
                     {s.keys.map((k, i) => (
                       <kbd
                         key={i}
-                        className="px-1.5 py-0.5 text-xs font-mono rounded bg-gray-100 text-gray-700 border border-gray-200"
+                        className="px-1.5 py-0.5 text-xs font-mono rounded border border-gray-200"
+                        style={{
+                          background: 'var(--glass-bg)',
+                          backdropFilter: 'var(--glass-blur)',
+                        }}
                       >
                         {k}
                       </kbd>

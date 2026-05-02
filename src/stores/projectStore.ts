@@ -4,6 +4,7 @@ import * as projectRepo from '../db/projectRepo';
 import * as requirementRepo from '../db/requirementRepo';
 import { today, now } from '../utils/date';
 import { generateId } from '../utils/id';
+import type { ProjectTemplate } from '../constants/projectTemplates';
 
 interface ProjectStore {
   projects: Project[];
@@ -11,6 +12,11 @@ interface ProjectStore {
   error: string | null;
   loadProjects: () => Promise<Project[]>;
   createProject: (name: string, startDate?: string) => Promise<Project>;
+  /** W4.2 — create a project from a built-in template (pre-fills requirements). */
+  createFromTemplate: (
+    template: ProjectTemplate,
+    overrides: { name?: string; startDate?: string },
+  ) => Promise<Project>;
   duplicateProject: (sourceId: string) => Promise<Project | null>;
   updateProject: (id: string, data: Partial<Project>) => Promise<void>;
   archiveProject: (id: string) => Promise<void>;
@@ -41,6 +47,37 @@ export const useProjectStore = create<ProjectStore>((set, get) => ({
     });
     set({ projects: [...get().projects, project] });
     return project;
+  },
+
+  createFromTemplate: async (template, overrides) => {
+    const newProject = await projectRepo.createProject({
+      name: overrides.name || template.name,
+      startDate: overrides.startDate || today(),
+    });
+    // Build requirements; resolve dependsOnIndex → real id via running map.
+    const idsByIndex = new Map<number, string>();
+    const reqs: Requirement[] = template.requirements.map((tr, i) => {
+      const id = generateId();
+      idsByIndex.set(i, id);
+      return {
+        id,
+        projectId: newProject.id,
+        name: tr.name,
+        originalDays: tr.days,
+        currentDays: tr.days,
+        isAddedByChange: false,
+        status: 'active' as const,
+        sortOrder: i,
+        dependsOn:
+          tr.dependsOnIndex !== null ? idsByIndex.get(tr.dependsOnIndex) ?? null : null,
+        pausedRemainingDays: null,
+        createdAt: now(),
+        updatedAt: now(),
+      };
+    });
+    await Promise.all(reqs.map((r) => requirementRepo.putRequirement(r)));
+    set({ projects: [...get().projects, newProject] });
+    return newProject;
   },
 
   /**

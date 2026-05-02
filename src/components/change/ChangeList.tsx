@@ -18,9 +18,12 @@ interface ChangeListProps {
   onRecord: (input: CreateChangeInput) => Promise<void>;
   onUpdate: (id: string, data: Partial<Change>) => Promise<void>;
   onDelete: (id: string) => void | Promise<void>;
+  /** Project's expected end date — passed through to ChangeRow for the
+   * W4.8 逾期 warning chip. */
+  projectEndDate?: string;
 }
 
-export function ChangeList({ projectId, changes, requirements, isArchived, onRecord, onUpdate, onDelete }: ChangeListProps) {
+export function ChangeList({ projectId, changes, requirements, isArchived, onRecord, onUpdate, onDelete, projectEndDate }: ChangeListProps) {
   const [showModal, setShowModal] = useState(false);
   const [editingChange, setEditingChange] = useState<Change | null>(null);
   const [deleteId, setDeleteId] = useState<string | null>(null);
@@ -354,6 +357,7 @@ export function ChangeList({ projectId, changes, requirements, isArchived, onRec
               batchMode={batchMode}
               selected={selectedIds.has(c.id)}
               onToggleSelect={toggleSelected}
+              projectEndDate={projectEndDate}
             />
           ))}
         </div>

@@ -131,6 +131,7 @@ export function ProjectPage() {
             isArchived={isArchived}
             onExport={() => setShowExportModal(true)}
             stats={fullStats}
+            projectId={project.id}
           />
         </div>
 
@@ -158,6 +159,7 @@ export function ProjectPage() {
             onRecord={recordChange}
             onUpdate={updateChange}
             onDelete={deleteChange}
+            projectEndDate={fullStats.endDate}
           />
         </div>
       </div>

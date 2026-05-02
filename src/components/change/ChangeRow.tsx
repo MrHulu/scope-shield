@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Pencil, Trash2 } from 'lucide-react';
+import { AlertTriangle, Pencil, Trash2 } from 'lucide-react';
 import type { Change, Requirement } from '../../types';
 import { CHANGE_TYPE_LABELS, SUPPLEMENT_SUBTYPE_LABELS } from '../../constants/changeTypes';
 import { ROLE_LABELS } from '../../constants/roles';
@@ -16,9 +16,12 @@ interface ChangeRowProps {
   batchMode?: boolean;
   selected?: boolean;
   onToggleSelect?: (id: string) => void;
+  /** Project's expected end date (from current schedule). When the change
+   * date falls after this, render a 逾期 warning chip. */
+  projectEndDate?: string;
 }
 
-export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelete, batchMode, selected, onToggleSelect }: ChangeRowProps) {
+export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelete, batchMode, selected, onToggleSelect, projectEndDate }: ChangeRowProps) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const pics = c.screenshots ?? [];
 
@@ -48,6 +51,10 @@ export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelet
     : c.daysDelta < 0
       ? `${c.daysDelta}天`
       : null;
+
+  // W4.8 — flag changes whose date sits past the project's expected delivery.
+  // String compare on ISO dates is safe (YYYY-MM-DD).
+  const overdue = !!(projectEndDate && c.date > projectEndDate);
 
   return (
     <div className={`group flex items-start gap-3 px-4 py-2.5 rounded-lg hover:bg-gray-50 ${selected ? 'bg-blue-50/60' : ''}`}>
@@ -79,6 +86,16 @@ export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelet
             </span>
           )}
           {deltaStr && <span className="text-xs font-semibold" style={{ color }}>{deltaStr}</span>}
+          {overdue && (
+            <span
+              className="inline-flex items-center gap-0.5 text-[10px] bg-red-100 text-red-700 px-1.5 py-0.5 rounded-full font-medium"
+              title={`变更日期 ${c.date} 晚于项目预计交付 ${projectEndDate}`}
+              data-testid={`change-row-overdue-${c.id}`}
+            >
+              <AlertTriangle size={10} />
+              逾期
+            </span>
+          )}
         </div>
         <p className="text-sm text-gray-700 mt-0.5 truncate">{c.description}</p>
         <p className="text-xs text-gray-400 mt-0.5">

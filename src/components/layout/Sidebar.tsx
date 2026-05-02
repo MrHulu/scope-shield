@@ -5,6 +5,8 @@ import type { Project } from '../../types';
 import { LocalStorageBadge } from './LocalStorageBadge';
 import { ThemeToggle } from './ThemeToggle';
 import { useAllProjectStats } from '../../hooks/useAllProjectStats';
+import { PROJECT_TEMPLATES, type ProjectTemplate } from '../../constants/projectTemplates';
+import { useProjectStore } from '../../stores/projectStore';
 
 interface SidebarProps {
   projects: Project[];
@@ -18,6 +20,8 @@ export function Sidebar({ projects, currentProjectId, onCreateProject, onDuplica
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
+  const [templateId, setTemplateId] = useState<string>(''); // '' = blank project
+  const createFromTemplate = useProjectStore((s) => s.createFromTemplate);
 
   const active = projects.filter((p) => p.status === 'active');
   const archived = projects.filter((p) => p.status === 'archived');
@@ -50,8 +54,13 @@ export function Sidebar({ projects, currentProjectId, onCreateProject, onDuplica
 
   const handleCreate = async () => {
     if (!name.trim()) return;
-    const project = await onCreateProject(name.trim(), startDate);
+    const tpl: ProjectTemplate | undefined =
+      templateId ? PROJECT_TEMPLATES.find((t) => t.id === templateId) : undefined;
+    const project = tpl
+      ? await createFromTemplate(tpl, { name: name.trim(), startDate })
+      : await onCreateProject(name.trim(), startDate);
     setName('');
+    setTemplateId('');
     setShowForm(false);
     navigate(`/project/${project.id}`);
   };
@@ -96,6 +105,20 @@ export function Sidebar({ projects, currentProjectId, onCreateProject, onDuplica
                 onChange={(e) => setStartDate(e.target.value)}
                 className="w-full text-sm border border-gray-200 rounded px-2 py-1 mb-2 focus:outline-none focus:border-blue-400"
               />
+              {/* W4.2 — pick a template (or leave blank for empty project) */}
+              <select
+                value={templateId}
+                onChange={(e) => setTemplateId(e.target.value)}
+                className="w-full text-xs border border-gray-200 rounded px-2 py-1 mb-2 focus:outline-none focus:border-blue-400"
+                data-testid="project-template-select"
+              >
+                <option value="">空白项目（不预填）</option>
+                {PROJECT_TEMPLATES.map((t) => (
+                  <option key={t.id} value={t.id}>
+                    {t.name} · {t.requirements.length} 条
+                  </option>
+                ))}
+              </select>
               <div className="flex gap-1.5">
                 <button
                   onClick={handleCreate}
