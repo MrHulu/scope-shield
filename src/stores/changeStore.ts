@@ -31,6 +31,14 @@ interface ChangeStore {
     projectId: string,
     allRequirements: Requirement[],
   ) => Promise<{ requirements: Requirement[] } | null>;
+  /** W2.6 — re-apply a deleted change. Mirrors deleteChange in reverse:
+   *  putChange + full replay. Re-creates an isAddedByChange requirement if
+   *  the restored change is a new_requirement. */
+  restoreChange: (
+    change: Change,
+    projectId: string,
+    allRequirements: Requirement[],
+  ) => Promise<{ requirements: Requirement[] } | null>;
 }
 
 // Fields that trigger a full replay when changed
@@ -163,6 +171,53 @@ export const useChangeStore = create<ChangeStore>((set, get) => ({
     await snapshotRepo.deleteSnapshotsByProject(projectId);
     await Promise.all([
       ...result.snapshots.map((snap) => snapshotRepo.putSnapshot(snap)),
+      ...result.changes.map((c) => changeRepo.putChange(c)),
+      ...result.requirements.map((r) => requirementRepo.putRequirement(r)),
+    ]);
+
+    set({ changes: result.changes });
+    return { requirements: result.requirements };
+  },
+
+  /**
+   * Re-insert a previously deleted change into IDB and full-replay. The
+   * caller (Cmd+Z handler) holds the original Change object; here we
+   * re-create the cascade-deleted requirement (only for new_requirement)
+   * and re-run the engine so all downstream state stays consistent.
+   */
+  restoreChange: async (change, projectId, allRequirements) => {
+    let reqs = allRequirements;
+    if (change.type === 'new_requirement' && change.targetRequirementId) {
+      // The deletion cascade-removed this requirement. Re-create it so the
+      // replay engine can find it as a target. originalDays mirrors the
+      // change's daysDelta (the requirement's worth-in-days).
+      const restoredReq: Requirement = {
+        id: change.targetRequirementId,
+        projectId,
+        name:
+          (change.metadata?.newRequirementName as string | undefined) ??
+          '已恢复需求',
+        originalDays: change.daysDelta,
+        currentDays: change.daysDelta,
+        isAddedByChange: true,
+        status: 'active',
+        sortOrder: reqs.length,
+        dependsOn: null,
+        pausedRemainingDays: null,
+        createdAt: change.createdAt,
+        updatedAt: now(),
+      };
+      await requirementRepo.putRequirement(restoredReq);
+      reqs = [...reqs, restoredReq];
+    }
+
+    await changeRepo.putChange(change);
+    const allChanges = [...get().changes, change];
+    const result = replayChanges(reqs, allChanges, projectId);
+
+    await snapshotRepo.deleteSnapshotsByProject(projectId);
+    await Promise.all([
+      ...result.snapshots.map((s) => snapshotRepo.putSnapshot(s)),
       ...result.changes.map((c) => changeRepo.putChange(c)),
       ...result.requirements.map((r) => requirementRepo.putRequirement(r)),
     ]);

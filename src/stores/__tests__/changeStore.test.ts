@@ -140,3 +140,52 @@ describe('changeStore.deleteChange', () => {
     expect(await changeRepo.getChange('c2')).toBeUndefined();
   });
 });
+
+describe('changeStore.restoreChange (W2.6)', () => {
+  beforeEach(async () => {
+    await clearAll();
+  });
+
+  it('puts the change row back + replays so currentDays match pre-delete state', async () => {
+    const reqs = [makeReq({ id: 'r1', currentDays: 3 })];
+    const change = makeChange({ id: 'c1', daysDelta: 2 });
+    await seedReqs(reqs);
+    // Pretend we just deleted change c1; store reflects post-delete state.
+    useChangeStore.setState({ changes: [] });
+
+    const result = await useChangeStore
+      .getState()
+      .restoreChange(change, PROJECT_ID, reqs);
+
+    expect(result).not.toBeNull();
+    // After restore, +2 days applied → currentDays = 5
+    expect(result!.requirements[0].currentDays).toBe(5);
+    expect(useChangeStore.getState().changes.map((c) => c.id)).toEqual(['c1']);
+    // IDB has the change row
+    expect(await changeRepo.getChange('c1')).toBeDefined();
+  });
+
+  it('re-creates the cascade-deleted requirement when restoring a new_requirement change', async () => {
+    const baseReq = makeReq({ id: 'r1' });
+    const newReqChange = makeChange({
+      id: 'c-new',
+      type: 'new_requirement',
+      targetRequirementId: 'added',
+      daysDelta: 4,
+      metadata: { newRequirementName: '运营要求' },
+    });
+    await seedReqs([baseReq]);
+    useChangeStore.setState({ changes: [] });
+
+    const result = await useChangeStore
+      .getState()
+      .restoreChange(newReqChange, PROJECT_ID, [baseReq]);
+
+    expect(result).not.toBeNull();
+    // Restored requirement is back in IDB and replay applied it.
+    const added = await requirementRepo.getRequirement('added');
+    expect(added).toBeDefined();
+    expect(added!.name).toBe('运营要求');
+    expect(added!.isAddedByChange).toBe(true);
+  });
+});
