@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { Change, Requirement, ScheduleResult, Role } from '../../types';
 import { APP_ROLE_COLORS, APP_COLORS } from '../../constants/colors';
 import { ROLE_LABELS } from '../../constants/roles';
@@ -122,6 +123,16 @@ export function SimpleChart({
   const dayToX = (days: number) => PAD_L + (days / baseDays) * BAR_W;
   const dayToW = (days: number) => Math.max((days / baseDays) * BAR_W, MIN_SEG_W);
 
+  // Bug-fix: actual bar = base + segments end-to-end. The old code rounded
+  // each rect individually with `rx={isLast ? 6 : 0}`, which left a tiny
+  // curved void between base.right (rounded) and segment[0].left (square)
+  // → users saw the panel background "leaking" through. Wrap the whole bar
+  // in a single rounded clipPath instead — segments stay flat, the silhouette
+  // is one continuous pill.
+  const clipUid = useId().replace(/:/g, '_');
+  const actualClipId = `actual-clip-${clipUid}`;
+  const actualBarPx = dayToW(originalTotalDays) + segments.reduce((sum, s) => sum + dayToW(s.width), 0);
+
   return (
     <div className="w-full">
       <svg
@@ -131,6 +142,21 @@ export function SimpleChart({
         xmlns="http://www.w3.org/2000/svg"
         style={{ fontFamily: "-apple-system, 'PingFang SC', 'Microsoft YaHei', sans-serif" }}
       >
+        <defs>
+          {/* clipPath operates in the local user space of the element it
+           * clips. Since this clip is applied to a `<g>` already inside
+           * `<g transform="translate(0, barH+gap)">`, the rect coords here
+           * are in that translated frame → y=0 (NOT barH+gap). */}
+          <clipPath id={actualClipId}>
+            <rect
+              x={PAD_L}
+              y={0}
+              width={actualBarPx}
+              height={barH}
+              rx={6}
+            />
+          </clipPath>
+        </defs>
         {/* === Plan bar === */}
         <g>
           <rect
@@ -149,21 +175,47 @@ export function SimpleChart({
 
         {/* === Actual bar === */}
         <g transform={`translate(0, ${barH + gap})`}>
-          {/* Blue base */}
-          <rect
-            x={PAD_L}
-            y={0}
-            width={dayToW(originalTotalDays)}
-            height={barH}
-            rx={6}
-            fill={planColor}
-            opacity={0.85}
-          />
+          {/* Wrap the bar fills in a clipPath group → continuous rounded
+              silhouette across base + all segments, no inter-segment seam. */}
+          <g clipPath={`url(#${actualClipId})`}>
+            {/* Blue base — no individual rx, clipPath handles rounding */}
+            <rect
+              x={PAD_L}
+              y={0}
+              width={dayToW(originalTotalDays)}
+              height={barH}
+              fill={planColor}
+              opacity={0.85}
+            />
+
+            {/* Change segments */}
+            {(() => {
+              let offsetDays = originalTotalDays;
+              return segments.map((seg) => {
+                const x = dayToX(offsetDays);
+                const w = dayToW(seg.width);
+                offsetDays += seg.width;
+                return (
+                  <rect
+                    key={`${seg.change.id}-fill`}
+                    x={x}
+                    y={0}
+                    width={w}
+                    height={barH}
+                    fill={seg.color}
+                    opacity={0.85}
+                  />
+                );
+              });
+            })()}
+          </g>
+          {/* Base label sits on top of the clipped bar */}
           <text x={PAD_L + 10} y={barH / 2 + 5} fontSize={13} fill="#fff" fontWeight={500}>
             {originalTotalDays}天
           </text>
 
-          {/* Change segments */}
+          {/* Per-segment annotation lines + labels (outside clipPath so they
+              extend below the bar). */}
           {(() => {
             let offsetDays = originalTotalDays;
             return segments.map((seg, i) => {
@@ -173,15 +225,6 @@ export function SimpleChart({
               const isSave = seg.change.type === 'cancel_requirement';
               return (
                 <g key={seg.change.id}>
-                  <rect
-                    x={x}
-                    y={0}
-                    width={w}
-                    height={barH}
-                    rx={i === segments.length - 1 ? 6 : 0}
-                    fill={seg.color}
-                    opacity={0.85}
-                  />
                   {/* Annotation line */}
                   <line
                     x1={x + w / 2}

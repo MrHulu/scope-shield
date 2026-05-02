@@ -123,7 +123,7 @@ export function ProjectPage() {
         />
 
         {/* Chart first — primary visual that should land in first-screen viewport */}
-        <div className="mt-4 glass-panel glass-panel-hover rounded-2xl">
+        <div className="mt-4 glass-panel glass-panel-hover rounded-2xl overflow-hidden">
           <ChartArea
             requirements={requirements}
             changes={changes}
@@ -135,7 +135,7 @@ export function ProjectPage() {
           />
         </div>
 
-        <div className="mt-4 glass-panel glass-panel-hover rounded-2xl">
+        <div className="mt-4 glass-panel glass-panel-hover rounded-2xl overflow-hidden">
           <RequirementList
             projectId={project.id}
             requirements={requirements}
@@ -150,7 +150,7 @@ export function ProjectPage() {
           />
         </div>
 
-        <div className="mt-4 glass-panel glass-panel-hover rounded-2xl">
+        <div className="mt-4 glass-panel glass-panel-hover rounded-2xl overflow-hidden">
           <ChangeList
             projectId={project.id}
             changes={changes}

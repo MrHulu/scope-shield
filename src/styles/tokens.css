@@ -72,6 +72,16 @@
   --z-toast: 60;
   --z-modal: 50;
   --z-command-palette: 70;
+
+  /* ─── Chart grid / divider strokes ─────────────────────────────────── */
+  /* Subtle enough to give visual rhythm without looking like ugly borders.
+   * Tinted one step lighter in dark mode so dashes stay legible against
+   * the deep gradient. */
+  --chart-grid: rgba(15, 23, 42, 0.05);
+  --chart-divider: rgba(15, 23, 42, 0.07);
+
+  /* ─── Focus ring (replaces ugly browser default black outline) ─────── */
+  --focus-ring: 0 0 0 2px rgba(37, 99, 235, 0.55);
 }
 
 /* ─── Reusable utility classes ──────────────────────────────────────── */
@@ -167,6 +177,12 @@
   --shadow-card-hover: 0 1px 3px rgba(0, 0, 0, 0.45), 0 8px 24px -8px rgba(0, 0, 0, 0.7);
   --shadow-modal: 0 20px 48px -12px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.4);
 
+  /* Charts in dark — dashed grid + dividers need to be lighter, not darker. */
+  --chart-grid: rgba(255, 255, 255, 0.06);
+  --chart-divider: rgba(255, 255, 255, 0.09);
+
+  --focus-ring: 0 0 0 2px rgba(96, 165, 250, 0.65);
+
   color-scheme: dark;
 }
 
@@ -177,13 +193,35 @@
   color: #e5e7eb; /* gray-200 */
 }
 
-/* Tailwind text utilities the app uses heavily — re-tint under dark. */
-:root[data-theme='dark'] .text-gray-900 { color: #f3f4f6; }
-:root[data-theme='dark'] .text-gray-700 { color: #d1d5db; }
-:root[data-theme='dark'] .text-gray-600 { color: #9ca3af; }
-:root[data-theme='dark'] .text-gray-500 { color: #9ca3af; }
-:root[data-theme='dark'] .text-gray-400 { color: #6b7280; }
-:root[data-theme='dark'] .text-gray-300 { color: #4b5563; }
+/* Tailwind text utilities the app uses heavily — re-tint under dark.
+ * Bumped one step lighter than the obvious mapping: pure inverted gray scale
+ * looks fine against #fff but disappears against the dark gradient backdrop.
+ * AAA contrast on body, AA on secondary, ≥3:1 on muted hints. */
+:root[data-theme='dark'] .text-gray-900 { color: #f9fafb; } /* near-white */
+:root[data-theme='dark'] .text-gray-700 { color: #e5e7eb; } /* gray-200 */
+:root[data-theme='dark'] .text-gray-600 { color: #d1d5db; } /* gray-300 */
+:root[data-theme='dark'] .text-gray-500 { color: #cbd5e1; } /* slate-300 */
+:root[data-theme='dark'] .text-gray-400 { color: #94a3b8; } /* slate-400 */
+:root[data-theme='dark'] .text-gray-300 { color: #64748b; } /* slate-500 */
+
+/* Colored chips / badges — Tailwind 100/700 light-bg combinations don't work
+ * over dark glass. Re-tint to muted-bg + bright-text so chips still pop. */
+:root[data-theme='dark'] .bg-red-100 { background-color: rgba(239, 68, 68, 0.18); }
+:root[data-theme='dark'] .text-red-700 { color: #fca5a5; }
+:root[data-theme='dark'] .text-red-600 { color: #f87171; }
+:root[data-theme='dark'] .bg-amber-100 { background-color: rgba(245, 158, 11, 0.18); }
+:root[data-theme='dark'] .text-amber-700 { color: #fcd34d; }
+:root[data-theme='dark'] .text-amber-600 { color: #fbbf24; }
+:root[data-theme='dark'] .bg-emerald-100 { background-color: rgba(16, 185, 129, 0.18); }
+:root[data-theme='dark'] .text-emerald-700 { color: #6ee7b7; }
+:root[data-theme='dark'] .text-green-600 { color: #4ade80; }
+:root[data-theme='dark'] .bg-rose-100 { background-color: rgba(244, 63, 94, 0.18); }
+:root[data-theme='dark'] .text-rose-700 { color: #fda4af; }
+:root[data-theme='dark'] .text-rose-600 { color: #fb7185; }
+:root[data-theme='dark'] .bg-purple-100 { background-color: rgba(168, 85, 247, 0.20); }
+:root[data-theme='dark'] .text-purple-700 { color: #d8b4fe; }
+:root[data-theme='dark'] .text-blue-700 { color: #93c5fd; }
+:root[data-theme='dark'] .text-blue-600 { color: #60a5fa; }
 
 /* Inputs / borders that still use raw Tailwind classes. */
 :root[data-theme='dark'] .border-gray-200 { border-color: rgba(255, 255, 255, 0.08); }
@@ -204,3 +242,65 @@
   color: #f3f4f6;
 }
 :root[data-theme='dark'] kbd { background-color: rgba(255, 255, 255, 0.1); color: #f3f4f6; }
+
+/* Surfaces that still leak white in dark mode. */
+:root[data-theme='dark'] .bg-white { background-color: rgba(28, 28, 32, 0.92); color: #e5e7eb; }
+:root[data-theme='dark'] .bg-gray-200 { background-color: rgba(255, 255, 255, 0.10); }
+:root[data-theme='dark'] .bg-blue-50\/60 { background-color: rgba(37, 99, 235, 0.10); }
+:root[data-theme='dark'] .bg-blue-100 { background-color: rgba(37, 99, 235, 0.22); color: #cdd9f1; }
+:root[data-theme='dark'] .text-blue-700 { color: #93c5fd; }
+:root[data-theme='dark'] .text-blue-600 { color: #60a5fa; }
+:root[data-theme='dark'] .border-gray-100 { border-color: rgba(255, 255, 255, 0.06); }
+:root[data-theme='dark'] .bg-gray-100\/80 { background-color: rgba(255, 255, 255, 0.06); }
+:root[data-theme='dark'] .bg-gray-100\/70 { background-color: rgba(255, 255, 255, 0.05); }
+:root[data-theme='dark'] .bg-gray-100\/60 { background-color: rgba(255, 255, 255, 0.04); }
+:root[data-theme='dark'] .border-gray-200\/60 { border-color: rgba(255, 255, 255, 0.06); }
+:root[data-theme='dark'] .border-gray-200\/70 { border-color: rgba(255, 255, 255, 0.07); }
+
+/* Light pastel chip backgrounds — re-tint each color family to a subtle
+ * 12-15% alpha tint so the chip color still reads, against dark glass.
+ * Pair with the corresponding text-*-700 already mapped above. */
+:root[data-theme='dark'] .bg-amber-50 { background-color: rgba(245, 158, 11, 0.10); }
+:root[data-theme='dark'] .bg-rose-50 { background-color: rgba(244, 63, 94, 0.10); }
+:root[data-theme='dark'] .bg-red-50 { background-color: rgba(239, 68, 68, 0.10); }
+:root[data-theme='dark'] .bg-blue-50 { background-color: rgba(37, 99, 235, 0.12); }
+:root[data-theme='dark'] .bg-green-50 { background-color: rgba(16, 185, 129, 0.10); }
+:root[data-theme='dark'] .bg-emerald-50 { background-color: rgba(16, 185, 129, 0.10); }
+/* hover:bg-white variants used in Sidebar duplicate icon button + mobile hamburger */
+:root[data-theme='dark'] .hover\:bg-white\/60:hover { background-color: rgba(255, 255, 255, 0.08); }
+:root[data-theme='dark'] .hover\:bg-white:hover { background-color: rgba(255, 255, 255, 0.12); }
+:root[data-theme='dark'] .bg-white\/90 { background-color: rgba(28, 28, 32, 0.85); color: #e5e7eb; }
+/* Mobile hamburger button border + drawer close button on dark */
+:root[data-theme='dark'] .border-gray-200 { border-color: rgba(255, 255, 255, 0.10); }
+
+/* ─── SVG chart strokes (DetailChart) ───────────────────────────────────
+ * Light mode picks up the JSX inline `stroke` attribute (literal rgba).
+ * Dark mode overrides via this !important rule scoped to data-theme. */
+:root[data-theme='dark'] line.svg-chart-grid {
+  stroke: rgba(255, 255, 255, 0.06) !important;
+}
+:root[data-theme='dark'] line.svg-chart-divider {
+  stroke: rgba(255, 255, 255, 0.09) !important;
+}
+
+/* ─── Suppress browser default focus outline ────────────────────────────
+ * `outline: 2px solid black` is the Chrome/Safari default — it stamps an
+ * ugly black box on every clicked button. We rely on existing hover/active
+ * background tints to convey state instead of a ring. */
+*:focus,
+*:focus-visible {
+  outline: none;
+}
+button:focus,
+button:focus-visible,
+[role="button"]:focus,
+[role="button"]:focus-visible,
+[role="tab"]:focus,
+[role="tab"]:focus-visible,
+a:focus,
+a:focus-visible {
+  outline: none;
+  box-shadow: none;
+}
+/* Inputs still get a subtle focus tint via existing border classes
+ * (focus:border-blue-400 etc), which is fine. */

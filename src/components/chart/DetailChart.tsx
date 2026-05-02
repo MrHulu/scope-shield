@@ -1,3 +1,4 @@
+import { useId } from 'react';
 import type { Change, Requirement, ScheduleResult, Role, RequirementSchedule } from '../../types';
 import { APP_ROLE_COLORS, APP_COLORS } from '../../constants/colors';
 import { ROLE_LABELS } from '../../constants/roles';
@@ -165,6 +166,8 @@ export function DetailChart({
   supplementColor = APP_COLORS.supplement,
 }: DetailChartProps) {
   const { originalTotalDays, totalDays } = schedule;
+  // Stable per-instance prefix for SVG <clipPath> ids (one clip per gantt row).
+  const clipPrefix = useId().replace(/:/g, '_');
 
   if (requirements.length === 0) {
     return (
@@ -244,13 +247,16 @@ export function DetailChart({
           )}
         </g>
 
-        {/* Divider */}
+        {/* Divider — JSX `stroke` attr renders the light value reliably
+         * (literal rgba). Dark mode overrides via .svg-chart-divider in
+         * tokens.css. */}
         <line
           x1={PAD_L}
           y1={timelineH}
           x2={VB_W - PAD_R}
           y2={timelineH}
-          stroke="#E5E7EB"
+          stroke="rgba(15, 23, 42, 0.07)"
+          className="svg-chart-divider"
           strokeWidth={1}
         />
 
@@ -268,13 +274,14 @@ export function DetailChart({
               const x = dayToX(day);
               return (
                 <g key={`tick-${day}`}>
-                  {/* Vertical grid line (light) */}
+                  {/* Vertical grid line — same dual-source pattern as divider. */}
                   <line
                     x1={x}
                     y1={0}
                     x2={x}
                     y2={ganttH}
-                    stroke="#E5E7EB"
+                    stroke="rgba(15, 23, 42, 0.05)"
+                    className="svg-chart-grid"
                     strokeWidth={1}
                     strokeDasharray="3,3"
                   />
@@ -387,34 +394,60 @@ export function DetailChart({
                   {timeLabel && <tspan fill="#9CA3AF" fontSize={9}> {timeLabel}</tspan>}
                 </text>
 
-                {/* Original days bar */}
-                <rect
-                  x={startX}
-                  y={2}
-                  width={origW}
-                  height={ROW_H - 4}
-                  rx={4}
-                  fill={row.isCancelled ? '#D1D5DB' : planColor}
-                  opacity={row.isPaused ? 0.4 : 0.85}
-                />
+                {/* clipPath — gives the original bar + all segments a single
+                    rounded silhouette so segment edges butt up flush. Eliminates
+                    the "moon-sliver" gap that used to leak panel background. */}
+                {(() => {
+                  const rowClipId = `gantt-clip-${clipPrefix}-${i}`;
+                  return (
+                    <>
+                      <defs>
+                        <clipPath id={rowClipId}>
+                          <rect
+                            x={startX}
+                            y={2}
+                            width={totalRowW}
+                            height={ROW_H - 4}
+                            rx={4}
+                          />
+                        </clipPath>
+                      </defs>
+                      <g clipPath={`url(#${rowClipId})`}>
+                        {/* Original-days base — no individual rx, clip handles it */}
+                        <rect
+                          x={startX}
+                          y={2}
+                          width={origW}
+                          height={ROW_H - 4}
+                          fill={row.isCancelled ? '#D1D5DB' : planColor}
+                          opacity={row.isPaused ? 0.4 : 0.85}
+                        />
+                        {/* Change segments — flat, clipPath rounds the outer edge */}
+                        {(() => {
+                          let offset = origW;
+                          return row.segments.map((seg) => {
+                            const w = dayToW(seg.widthDays);
+                            const xPos = startX + offset;
+                            offset += w;
+                            return (
+                              <rect
+                                key={seg.changeId}
+                                x={xPos}
+                                y={2}
+                                width={w}
+                                height={ROW_H - 4}
+                                fill={seg.color}
+                                opacity={0.85}
+                              />
+                            );
+                          });
+                        })()}
+                      </g>
+                    </>
+                  );
+                })()}
 
-                {/* Critical-path outline — wraps the full row including any
-                    change segments so the visual still reads when bars are
-                    extended by add_days etc. */}
-                {isCritical && (
-                  <rect
-                    x={startX - 1}
-                    y={1}
-                    width={totalRowW + 2}
-                    height={ROW_H - 2}
-                    rx={5}
-                    fill="none"
-                    stroke="#DC2626"
-                    strokeWidth={1.5}
-                  />
-                )}
-
-                {/* Cancelled overlay line */}
+                {/* Cancelled overlay line — strikethrough across the bar. */}
                 {row.isCancelled && (
                   <line
                     x1={startX}
@@ -426,42 +459,10 @@ export function DetailChart({
                   />
                 )}
 
-                {/* Paused dashed border */}
-                {row.isPaused && (
-                  <rect
-                    x={startX}
-                    y={2}
-                    width={origW}
-                    height={ROW_H - 4}
-                    rx={4}
-                    fill="none"
-                    stroke="#9CA3AF"
-                    strokeWidth={1}
-                    strokeDasharray="4,2"
-                  />
-                )}
-
-                {/* Change segments */}
-                {(() => {
-                  let offset = origW;
-                  return row.segments.map((seg) => {
-                    const w = dayToW(seg.widthDays);
-                    const xPos = startX + offset;
-                    offset += w;
-                    return (
-                      <rect
-                        key={seg.changeId}
-                        x={xPos}
-                        y={2}
-                        width={w}
-                        height={ROW_H - 4}
-                        rx={2}
-                        fill={seg.color}
-                        opacity={0.85}
-                      />
-                    );
-                  });
-                })()}
+                {/* W-bug-fix: critical-path red border + paused dashed border
+                    were both visually heavy. Status is already conveyed by the
+                    🔥 / ⏸ emoji + opacity dimming on the row label, which is
+                    cleaner. */}
 
                 {/* Day count label */}
                 {!row.isCancelled && (

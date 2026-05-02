@@ -151,7 +151,7 @@ export function SharedViewPage({ snapshot, onClone }: SharedViewPageProps) {
           onArchive={() => {}}
           onRestore={() => {}}
         />
-        <div className="mt-4 glass-panel rounded-2xl">
+        <div className="mt-4 glass-panel rounded-2xl overflow-hidden">
           <ChartArea
             requirements={requirements}
             changes={changes}
@@ -161,7 +161,7 @@ export function SharedViewPage({ snapshot, onClone }: SharedViewPageProps) {
             stats={stats}
           />
         </div>
-        <div className="mt-4 glass-panel rounded-2xl">
+        <div className="mt-4 glass-panel rounded-2xl overflow-hidden">
           <RequirementList
             projectId={project.id}
             requirements={requirements}
@@ -172,7 +172,7 @@ export function SharedViewPage({ snapshot, onClone }: SharedViewPageProps) {
             onReorder={async () => {}}
           />
         </div>
-        <div className="mt-4 glass-panel rounded-2xl">
+        <div className="mt-4 glass-panel rounded-2xl overflow-hidden">
           <ChangeList
             projectId={project.id}
             changes={changes}
