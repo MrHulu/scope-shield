@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Search, FolderOpen, ListChecks, FileText } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { useProjectStore } from '../../stores/projectStore';
 import { useRequirementStore } from '../../stores/requirementStore';
 import { useChangeStore } from '../../stores/changeStore';
@@ -40,6 +41,7 @@ export function CommandPalette() {
   const requirements = useRequirementStore((s) => s.requirements);
   const changes = useChangeStore((s) => s.changes);
   const currentProjectId = useUIStore((s) => s.currentProjectId);
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
 
   // Global ⌘K / Ctrl+K opens; Escape closes.
   useEffect(() => {
@@ -139,6 +141,7 @@ export function CommandPalette() {
       aria-label="命令面板"
     >
       <div
+        ref={trapRef}
         className="glass-panel-strong rounded-2xl w-full max-w-lg mx-4 overflow-hidden"
         onClick={(e) => e.stopPropagation()}
         data-testid="command-palette"

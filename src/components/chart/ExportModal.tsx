@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { X } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 export type ExportMode = 'single' | 'comparison';
 
@@ -16,6 +17,7 @@ export function ExportModal({ open, onExport, onClose, exporting }: ExportModalP
   const [preset, setPreset] = useState<Preset>('mobile');
   const [customWidth, setCustomWidth] = useState('600');
   const [mode, setMode] = useState<ExportMode>('single');
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
 
   if (!open) return null;
 
@@ -41,6 +43,10 @@ export function ExportModal({ open, onExport, onClose, exporting }: ExportModalP
       onClick={onClose}
     >
       <div
+        ref={trapRef}
+        role="dialog"
+        aria-modal="true"
+        aria-label="导出图片"
         className="glass-panel-strong rounded-2xl w-full max-w-sm mx-4"
         onClick={(e) => e.stopPropagation()}
       >

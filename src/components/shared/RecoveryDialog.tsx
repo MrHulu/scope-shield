@@ -1,5 +1,6 @@
 import { useEffect } from 'react';
 import type { AutoBackup } from '../../db/autoBackup';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface RecoveryDialogProps {
   open: boolean;
@@ -16,6 +17,8 @@ export function RecoveryDialog({
   onDownload,
   onSkip,
 }: RecoveryDialogProps) {
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
+
   useEffect(() => {
     if (!open) return;
     const handler = (e: KeyboardEvent) => { if (e.key === 'Escape') onSkip(); };
@@ -33,6 +36,7 @@ export function RecoveryDialog({
       style={{ zIndex: 'var(--z-modal)' }}
     >
       <div
+        ref={trapRef}
         role="alertdialog"
         aria-modal="true"
         aria-label="数据恢复"

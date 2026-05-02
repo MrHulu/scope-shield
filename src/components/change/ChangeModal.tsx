@@ -8,6 +8,7 @@ import { today } from '../../utils/date';
 import { validateDays, validateSupplementDays, validatePausedRemainingDays } from '../../utils/validation';
 import { compressImage, MAX_SCREENSHOTS } from '../../utils/image';
 import { showToast } from '../shared/Toast';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface ChangeModalProps {
   open: boolean;
@@ -42,6 +43,7 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
   // auto-advances to 'details' once a type is clicked. Edit mode skips
   // straight to 'details'.
   const [step, setStep] = useState<'type' | 'details'>('details');
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
 
   const isEditing = !!editingChange;
 
@@ -272,7 +274,7 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
       style={{ zIndex: 'var(--z-modal)' }}
       onClick={onClose}
     >
-      <div role="dialog" aria-modal="true" aria-label={isEditing ? '编辑变更' : '记录变更'} className="glass-panel-strong rounded-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
+      <div ref={trapRef} role="dialog" aria-modal="true" aria-label={isEditing ? '编辑变更' : '记录变更'} className="glass-panel-strong rounded-2xl w-full max-w-lg mx-4 max-h-[90vh] overflow-y-auto" onClick={(e) => e.stopPropagation()}>
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200">
           <h3 className="text-lg font-semibold text-gray-900">{isEditing ? '编辑变更' : '记录变更'}</h3>
           <button onClick={onClose} aria-label="关闭" className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>

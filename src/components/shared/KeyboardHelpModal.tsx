@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react';
 import { X } from 'lucide-react';
+import { useFocusTrap } from '../../hooks/useFocusTrap';
 
 interface Shortcut {
   keys: string[];
@@ -37,6 +38,7 @@ function isTypingTarget(target: EventTarget | null): boolean {
  */
 export function KeyboardHelpModal() {
   const [open, setOpen] = useState(false);
+  const trapRef = useFocusTrap<HTMLDivElement>(open);
 
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
@@ -77,6 +79,7 @@ export function KeyboardHelpModal() {
       data-testid="keyboard-help-modal"
     >
       <div
+        ref={trapRef}
         className="glass-panel-strong rounded-2xl w-full max-w-md mx-4 p-5"
         onClick={(e) => e.stopPropagation()}
       >
