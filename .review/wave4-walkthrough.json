@@ -1,0 +1,92 @@
+{
+  "totalDuration": 7877,
+  "errors": [],
+  "findingCount": 17,
+  "findings": [
+    {
+      "step": "S1",
+      "finding": "首屏耗时 1691ms",
+      "ts": "2026-05-02T07:00:22.128Z"
+    },
+    {
+      "step": "S2.W4.1",
+      "finding": "✓ ProjectHeader CSV 导出按钮可见",
+      "ts": "2026-05-02T07:00:22.137Z"
+    },
+    {
+      "step": "S2.W4.1",
+      "finding": "下载触发 · 文件名 = CRM_系统重构-requirements-2026-05-02.csv",
+      "ts": "2026-05-02T07:00:22.167Z"
+    },
+    {
+      "step": "S3.W4.4",
+      "finding": "ChangeModal 中预设 tag chip 数量 = 6 (应 ≥ 5)",
+      "ts": "2026-05-02T07:00:22.873Z"
+    },
+    {
+      "step": "S4.W4.5",
+      "finding": "✓ 批量管理 toggle 可见",
+      "ts": "2026-05-02T07:00:23.078Z"
+    },
+    {
+      "step": "S4.W4.5",
+      "finding": "批量模式 checkbox 数量 = 4",
+      "ts": "2026-05-02T07:00:23.682Z"
+    },
+    {
+      "step": "S5.W4.6",
+      "finding": "输入 q=需求 后 URL 含 q= → true",
+      "ts": "2026-05-02T07:00:24.257Z"
+    },
+    {
+      "step": "S5.W4.6",
+      "finding": "清空后 URL 不含 q= → true",
+      "ts": "2026-05-02T07:00:24.565Z"
+    },
+    {
+      "step": "S6.W4.2",
+      "finding": "✓ 模板下拉可见",
+      "ts": "2026-05-02T07:00:24.895Z"
+    },
+    {
+      "step": "S6.W4.2",
+      "finding": "模板下拉 option 数 = 6 (1 空白 + 5 模板 = 6)",
+      "ts": "2026-05-02T07:00:24.896Z"
+    },
+    {
+      "step": "S7.W4.3",
+      "finding": "✓ ChartArea 回放按钮可见",
+      "ts": "2026-05-02T07:00:25.461Z"
+    },
+    {
+      "step": "S7.W4.3",
+      "finding": "回放播放器 dialog 可见 = true",
+      "ts": "2026-05-02T07:00:26.657Z"
+    },
+    {
+      "step": "S7.W4.3",
+      "finding": "— 项目无 snapshot（demo 已有变更但未触发 snapshot 写入）",
+      "ts": "2026-05-02T07:00:26.658Z"
+    },
+    {
+      "step": "S8.W4.7",
+      "finding": "data-theme 切换后 = dark",
+      "ts": "2026-05-02T07:00:27.181Z"
+    },
+    {
+      "step": "S8.W4.7",
+      "finding": "暗色下 keyboard help modal 可见 = true",
+      "ts": "2026-05-02T07:00:27.880Z"
+    },
+    {
+      "step": "S8.W4.7",
+      "finding": "kbd 使用 glass-bg token = true",
+      "ts": "2026-05-02T07:00:27.880Z"
+    },
+    {
+      "step": "S8.W4.8",
+      "finding": "逾期 chip 数量 = 0 (demo 多半为 0，结构断言通过即可)",
+      "ts": "2026-05-02T07:00:28.295Z"
+    }
+  ]
+}
