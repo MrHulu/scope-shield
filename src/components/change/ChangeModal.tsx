@@ -38,6 +38,10 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  // W2.4 — two-step UX. Create mode starts at 'type' (pick category) and
+  // auto-advances to 'details' once a type is clicked. Edit mode skips
+  // straight to 'details'.
+  const [step, setStep] = useState<'type' | 'details'>('details');
 
   const isEditing = !!editingChange;
 
@@ -66,8 +70,11 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
               : editingChange.metadata.reprioritizeNewDependsOn,
         );
         setScreenshots(editingChange.screenshots ?? []);
+        setStep('details'); // editing — fields populated, skip type selection
       } else {
-        // Create mode: reset all
+        // Create mode: reset all. Default to step='details' with type=add_days
+        // so the form is immediately usable; users who want a different type
+        // click "← 选其他类型" to expand the picker grid.
         setType('add_days');
         setTargetId(null);
         setRole('pm');
@@ -82,6 +89,7 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
         setReprioritizeTarget('');
         setReprioritizeNewDep('');
         setScreenshots([]);
+        setStep('details');
       }
       setErrors({});
       setSaving(false);
@@ -270,25 +278,75 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
           <button onClick={onClose} aria-label="关闭" className="p-1 hover:bg-gray-100 rounded"><X size={18} /></button>
         </div>
 
-        <div className="px-6 py-4 flex flex-col gap-4">
-          {/* Type selection — locked in edit mode */}
-          <div>
-            <label className="text-xs text-gray-500 mb-1.5 block">变更类型</label>
-            <div className="flex flex-wrap gap-1.5">
-              {CHANGE_TYPES.map((t) => (
-                <button
-                  key={t}
-                  onClick={() => { if (!isEditing) { setType(t); setTargetId(null); } }}
-                  disabled={isEditing}
-                  className={`text-xs px-3 py-1.5 rounded-full border ${
-                    type === t ? 'border-blue-600 bg-blue-50 text-blue-700' : 'border-gray-200 text-gray-600 hover:bg-gray-50'
-                  } ${isEditing ? 'cursor-not-allowed opacity-60' : ''}`}
-                >
-                  {CHANGE_TYPE_LABELS[t]}
-                </button>
-              ))}
-            </div>
+        {/* W2.4 step indicator (create mode only — edit mode stays single-step) */}
+        {!isEditing && (
+          <div className="px-6 pt-3 pb-2 flex items-center gap-3 text-[11px] text-gray-500" data-testid="change-modal-stepper">
+            <span className={step === 'type' ? 'text-blue-700 font-semibold' : ''}>① 选类型</span>
+            <span className="text-gray-300">→</span>
+            <span className={step === 'details' ? 'text-blue-700 font-semibold' : ''}>② 填详情</span>
           </div>
+        )}
+
+        <div className="px-6 pb-4 flex flex-col gap-4">
+          {/* Step 1: Type picker — also shown in edit mode (locked) for context */}
+          {step === 'type' && !isEditing && (
+            <div data-testid="change-modal-step-type">
+              <label className="text-xs text-gray-500 mb-2 block">想记录什么类型的变更？</label>
+              <div className="grid grid-cols-2 gap-2">
+                {CHANGE_TYPES.map((t) => (
+                  <button
+                    key={t}
+                    onClick={() => {
+                      setType(t);
+                      setTargetId(null);
+                      setStep('details');
+                    }}
+                    className={`text-sm px-3 py-2.5 rounded-lg border text-left ${
+                      type === t
+                        ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
+                        : 'border-gray-200 text-gray-700 hover:bg-gray-50'
+                    }`}
+                    data-testid={`change-type-${t}`}
+                  >
+                    {CHANGE_TYPE_LABELS[t]}
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Step 2: locked-in type chip + back link */}
+          {step === 'details' && !isEditing && (
+            <div className="flex items-center justify-between border-b border-gray-200/50 pb-3">
+              <div className="text-sm text-gray-700">
+                <span className="text-xs text-gray-500 mr-2">类型</span>
+                <span className="font-medium">{CHANGE_TYPE_LABELS[type]}</span>
+              </div>
+              <button
+                type="button"
+                onClick={() => setStep('type')}
+                className="text-xs text-blue-600 hover:underline"
+                data-testid="change-modal-back-to-type"
+              >
+                ← 选其他类型
+              </button>
+            </div>
+          )}
+
+          {/* Edit mode: keep the original locked-in type strip so users see what
+              they're editing without exposing the selector grid. */}
+          {isEditing && (
+            <div>
+              <label className="text-xs text-gray-500 mb-1.5 block">变更类型</label>
+              <div className="text-sm text-gray-700 px-3 py-1.5 rounded-lg bg-gray-50 inline-block">
+                {CHANGE_TYPE_LABELS[type]}
+              </div>
+            </div>
+          )}
+
+          {/* W2.4 — wrap all detail-step fields in a fragment that's only
+              rendered when step==='details'. Edit mode always renders. */}
+          {step === 'details' && <>
 
           {/* Target requirement (active only) */}
           {needsTarget && (
@@ -582,17 +640,23 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
               }}
             />
           </div>
+          </>}
+          {/* W2.4 details fragment closes */}
         </div>
 
         <div className="flex justify-end gap-3 px-6 py-4 border-t border-gray-200">
-          <button onClick={onClose} className="text-sm text-gray-600 px-4 py-2 hover:bg-gray-100 rounded-lg">取消</button>
-          <button
-            onClick={handleSave}
-            disabled={saving}
-            className="text-sm text-white bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
-          >
-            {saving ? '保存中...' : isEditing ? '更新' : '保存'}
+          <button onClick={onClose} className="text-sm text-gray-600 px-4 py-2 hover:bg-gray-100 rounded-lg">
+            {step === 'type' && !isEditing ? '关闭' : '取消'}
           </button>
+          {(step === 'details' || isEditing) && (
+            <button
+              onClick={handleSave}
+              disabled={saving}
+              className="text-sm text-white bg-blue-600 px-4 py-2 rounded-lg hover:bg-blue-700 disabled:opacity-50"
+            >
+              {saving ? '保存中...' : isEditing ? '更新' : '保存'}
+            </button>
+          )}
         </div>
       </div>
     </div>

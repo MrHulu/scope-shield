@@ -110,10 +110,21 @@ export async function openChangeModal(page: Page) {
 }
 
 /**
- * Select a change type in the ChangeModal.
+ * Select a change type in the ChangeModal. Handles the W2.4 two-step UX:
+ * the modal opens at step='details' with type=add_days. To switch types
+ * we tap "← 选其他类型" first to expose the picker, then click the chip.
  */
 export async function selectChangeType(page: Page, label: string) {
   const dialog = page.getByRole('dialog');
+  const stepPicker = page.getByTestId('change-modal-step-type');
+  if (!(await stepPicker.isVisible({ timeout: 200 }).catch(() => false))) {
+    const back = page.getByTestId('change-modal-back-to-type');
+    if (await back.isVisible({ timeout: 200 }).catch(() => false)) {
+      await back.click();
+      // Wait for re-render — the type picker grid mounts after the back click.
+      await stepPicker.waitFor({ state: 'visible', timeout: 2000 });
+    }
+  }
   await dialog.getByRole('button', { name: label }).click();
 }
 

@@ -1,17 +1,19 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FolderOpen, Archive, Shield } from 'lucide-react';
+import { Plus, FolderOpen, Archive, Shield, Copy } from 'lucide-react';
 import type { Project } from '../../types';
 import { LocalStorageBadge } from './LocalStorageBadge';
 import { ThemeToggle } from './ThemeToggle';
+import { useAllProjectStats } from '../../hooks/useAllProjectStats';
 
 interface SidebarProps {
   projects: Project[];
   currentProjectId: string | null;
   onCreateProject: (name: string, startDate: string) => Promise<Project>;
+  onDuplicateProject?: (sourceId: string) => Promise<Project | null>;
 }
 
-export function Sidebar({ projects, currentProjectId, onCreateProject }: SidebarProps) {
+export function Sidebar({ projects, currentProjectId, onCreateProject, onDuplicateProject }: SidebarProps) {
   const navigate = useNavigate();
   const [showForm, setShowForm] = useState(false);
   const [name, setName] = useState('');
@@ -19,6 +21,32 @@ export function Sidebar({ projects, currentProjectId, onCreateProject }: Sidebar
 
   const active = projects.filter((p) => p.status === 'active');
   const archived = projects.filter((p) => p.status === 'archived');
+  // W2.7 — colored inflation chip per project. Computed live; updates as the
+  // user records changes via the changeNotifier hook.
+  const projectStats = useAllProjectStats(active);
+
+  function inflationChip(projectId: string): JSX.Element | null {
+    const s = projectStats.get(projectId);
+    if (!s || s.inflationRate === null) return null;
+    const tone =
+      s.inflationRate > 20
+        ? 'bg-red-100 text-red-700'
+        : s.inflationRate > 0
+          ? 'bg-amber-100 text-amber-700'
+          : s.inflationRate < 0
+            ? 'bg-emerald-100 text-emerald-700'
+            : 'bg-gray-100 text-gray-500';
+    const sign = s.inflationRate > 0 ? '+' : '';
+    return (
+      <span
+        data-testid={`project-inflation-${projectId}`}
+        data-inflation={s.inflationRate}
+        className={`text-[10px] px-1.5 py-0.5 rounded-full font-medium tabular-nums ${tone}`}
+      >
+        {sign}{s.inflationRate}%
+      </span>
+    );
+  }
 
   const handleCreate = async () => {
     if (!name.trim()) return;
@@ -86,19 +114,40 @@ export function Sidebar({ projects, currentProjectId, onCreateProject }: Sidebar
           )}
 
           {active.map((p) => (
-            <button
+            <div
               key={p.id}
-              onClick={() => navigate(`/project/${p.id}`)}
-              className={`w-full text-left text-sm px-3 py-2 rounded-lg mb-0.5 flex items-center gap-2 ${
+              className={`group relative flex items-center rounded-lg mb-0.5 ${
                 p.id === currentProjectId
                   ? 'bg-blue-100 text-blue-700 font-medium'
                   : 'text-gray-700 hover:bg-gray-100'
               }`}
             >
-              <FolderOpen size={14} />
-              <span className="truncate">{p.name}</span>
-              {p.isDemo && <span className="text-[10px] text-gray-400">Demo</span>}
-            </button>
+              <button
+                onClick={() => navigate(`/project/${p.id}`)}
+                className="flex-1 min-w-0 text-left text-sm px-3 py-2 flex items-center gap-2"
+              >
+                <FolderOpen size={14} />
+                <span className="truncate flex-1">{p.name}</span>
+                {p.isDemo && <span className="text-[10px] text-gray-400">Demo</span>}
+                {inflationChip(p.id)}
+              </button>
+              {onDuplicateProject && (
+                <button
+                  type="button"
+                  data-testid={`project-duplicate-${p.id}`}
+                  aria-label={`复制 ${p.name}`}
+                  title="复制项目结构"
+                  onClick={async (e) => {
+                    e.stopPropagation();
+                    const created = await onDuplicateProject(p.id);
+                    if (created) navigate(`/project/${created.id}`);
+                  }}
+                  className="opacity-0 group-hover:opacity-100 mr-1 p-1 text-gray-400 hover:text-gray-700 hover:bg-white/60 rounded"
+                >
+                  <Copy size={12} />
+                </button>
+              )}
+            </div>
           ))}
 
           {active.length === 0 && !showForm && (
