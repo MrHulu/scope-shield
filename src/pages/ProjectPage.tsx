@@ -115,6 +115,9 @@ export function ProjectPage() {
         <ProjectHeader
           project={project}
           stats={fullStats}
+          requirements={requirements}
+          changes={changes}
+          criticalPath={scheduleResult.criticalPath}
           onArchive={() => archiveProject(project.id)}
           onRestore={() => restoreProject(project.id)}
         />

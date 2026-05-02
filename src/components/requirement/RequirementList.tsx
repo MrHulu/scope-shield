@@ -1,5 +1,6 @@
 import { useState, useCallback, useEffect } from 'react';
-import { Plus, RefreshCw } from 'lucide-react';
+import { Plus, RefreshCw, Upload } from 'lucide-react';
+import { BulkImportModal } from './BulkImportModal';
 import {
   DndContext,
   closestCenter,
@@ -35,6 +36,7 @@ interface RequirementListProps {
 
 export function RequirementList({ projectId, requirements, isArchived, onAdd, onUpdate, onDelete, onReorder, onSyncFeishu, syncing, hasFeishuRequirements }: RequirementListProps) {
   const [showForm, setShowForm] = useState(false);
+  const [showBulkImport, setShowBulkImport] = useState(false);
   // Pulse the row that was just added for ~1.5s so the user sees the
   // visual confirmation that their action landed (especially important
   // when stat cards don't budge — which is most of the time for added reqs).
@@ -85,6 +87,15 @@ export function RequirementList({ projectId, requirements, isArchived, onAdd, on
                 {syncing ? '同步中…' : '同步飞书'}
               </button>
             )}
+            <button
+              onClick={() => setShowBulkImport(true)}
+              className="flex items-center gap-1 text-sm text-gray-600 border border-gray-200 hover:bg-gray-50 px-3 py-1.5 rounded-lg"
+              title="批量导入（CSV / JSON）"
+              data-testid="bulk-import-trigger"
+            >
+              <Upload size={14} />
+              批量导入
+            </button>
             <button
               onClick={() => setShowForm(true)}
               className="flex items-center gap-1 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 px-3 py-1.5 rounded-lg shadow-sm"
@@ -148,6 +159,14 @@ export function RequirementList({ projectId, requirements, isArchived, onAdd, on
           ))}
         </div>
       )}
+
+      <BulkImportModal
+        open={showBulkImport}
+        projectId={projectId}
+        existingRequirements={requirements}
+        onAdd={onAdd}
+        onClose={() => setShowBulkImport(false)}
+      />
     </div>
   );
 }

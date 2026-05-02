@@ -1,17 +1,24 @@
-import { Archive, RotateCcw } from 'lucide-react';
-import type { Project, ProjectStats } from '../../types';
+import { Archive, RotateCcw, ClipboardCopy } from 'lucide-react';
+import type { Change, Project, ProjectStats, Requirement } from '../../types';
 import { StatsCard } from './StatsCard';
 import { useState } from 'react';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
+import { generateMarkdownReport } from '../../services/reportGenerator';
+import { showToast } from '../shared/Toast';
 
 interface ProjectHeaderProps {
   project: Project;
   stats: ProjectStats;
+  /** Pass requirements + changes + criticalPath to enable the "复制 Markdown
+   *  报告" action. Optional — header degrades to summary-only when omitted. */
+  requirements?: Requirement[];
+  changes?: Change[];
+  criticalPath?: string[];
   onArchive: () => void;
   onRestore: () => void;
 }
 
-export function ProjectHeader({ project, stats, onArchive, onRestore }: ProjectHeaderProps) {
+export function ProjectHeader({ project, stats, requirements, changes, criticalPath, onArchive, onRestore }: ProjectHeaderProps) {
   const [showArchive, setShowArchive] = useState(false);
   const isArchived = project.status === 'archived';
 
@@ -48,6 +55,31 @@ export function ProjectHeader({ project, stats, onArchive, onRestore }: ProjectH
           </p>
         </div>
         <div className="flex gap-2">
+          {requirements && changes && (
+            <button
+              onClick={async () => {
+                const md = generateMarkdownReport({
+                  project,
+                  stats,
+                  requirements,
+                  changes,
+                  criticalPath,
+                });
+                try {
+                  await navigator.clipboard.writeText(md);
+                  showToast('已复制 Markdown 报告（可贴到飞书 / 邮件）', 'success');
+                } catch {
+                  showToast('复制失败 — 浏览器拒绝访问剪贴板', 'error');
+                }
+              }}
+              className="flex items-center gap-1.5 text-sm px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg"
+              data-testid="copy-markdown-report"
+              title="生成项目状态 Markdown，复制到剪贴板"
+            >
+              <ClipboardCopy size={14} />
+              复制报告
+            </button>
+          )}
           {isArchived ? (
             <button
               onClick={onRestore}
