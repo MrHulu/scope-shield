@@ -1,4 +1,4 @@
-import { Archive, RotateCcw, ClipboardCopy, FileDown } from 'lucide-react';
+import { Archive, RotateCcw, ClipboardCopy, FileDown, AlertTriangle, CalendarClock, Share2 } from 'lucide-react';
 import type { Change, Project, ProjectStats, Requirement } from '../../types';
 import { StatsCard } from './StatsCard';
 import { useState } from 'react';
@@ -7,6 +7,8 @@ import { generateMarkdownReport } from '../../services/reportGenerator';
 import { exportToCsv } from '../../services/bulkImporter';
 import { showToast } from '../shared/Toast';
 import { SnapshotHistory } from '../snapshot/SnapshotHistory';
+import { useProjectStore } from '../../stores/projectStore';
+import { buildShareUrl } from '../../services/shareLink';
 
 interface ProjectHeaderProps {
   project: Project;
@@ -22,7 +24,16 @@ interface ProjectHeaderProps {
 
 export function ProjectHeader({ project, stats, requirements, changes, criticalPath, onArchive, onRestore }: ProjectHeaderProps) {
   const [showArchive, setShowArchive] = useState(false);
+  const [editingTarget, setEditingTarget] = useState(false);
+  const [draftTarget, setDraftTarget] = useState(project.targetEndDate ?? '');
+  const updateProject = useProjectStore((s) => s.updateProject);
   const isArchived = project.status === 'archived';
+
+  // W5.1 — overdue if today > targetEndDate.
+  const today = new Date().toISOString().slice(0, 10);
+  const overdueDays = project.targetEndDate && today > project.targetEndDate
+    ? Math.floor((Date.parse(today) - Date.parse(project.targetEndDate)) / 86400000)
+    : 0;
 
   const inflationDisplay =
     stats.inflationRate === null ? '—' : `${stats.inflationRate > 0 ? '+' : ''}${stats.inflationRate}%`;
@@ -48,15 +59,75 @@ export function ProjectHeader({ project, stats, requirements, changes, criticalP
 
   return (
     <div className="px-6 py-4 border-b border-gray-200/70">
-      <div className="flex items-center justify-between mb-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 mb-4">
         <div>
-          <h1 className="text-xl font-semibold text-gray-900">{project.name}</h1>
-          <p className="text-xs text-gray-500">
-            {project.startDate} 开始
-            {isArchived && <span className="ml-2 text-amber-600">已归档</span>}
-          </p>
+          <div className="flex items-center gap-2">
+            <h1 className="text-xl font-semibold text-gray-900">{project.name}</h1>
+            {overdueDays > 0 && !isArchived && (
+              <span
+                className="inline-flex items-center gap-1 text-xs bg-red-100 text-red-700 px-2 py-0.5 rounded-full font-medium"
+                title={`目标交付日 ${project.targetEndDate}，已超过 ${overdueDays} 天`}
+                data-testid="project-overdue-chip"
+              >
+                <AlertTriangle size={12} />
+                已逾期 {overdueDays} 天
+              </span>
+            )}
+          </div>
+          <div className="flex items-center gap-2 text-xs text-gray-500 mt-0.5">
+            <span>{project.startDate} 开始</span>
+            {!isArchived && !editingTarget && (
+              <button
+                type="button"
+                className="inline-flex items-center gap-1 hover:text-gray-700"
+                onClick={() => {
+                  setDraftTarget(project.targetEndDate ?? '');
+                  setEditingTarget(true);
+                }}
+                data-testid="target-end-date-edit"
+                title="设置项目目标交付日"
+              >
+                <CalendarClock size={11} />
+                {project.targetEndDate ? `目标 ${project.targetEndDate}` : '设置目标日'}
+              </button>
+            )}
+            {editingTarget && (
+              <span className="inline-flex items-center gap-1">
+                <input
+                  type="date"
+                  value={draftTarget}
+                  onChange={(e) => setDraftTarget(e.target.value)}
+                  className="text-xs border border-gray-200 rounded px-1.5 py-0.5"
+                  data-testid="target-end-date-input"
+                  autoFocus
+                />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    await updateProject(project.id, {
+                      targetEndDate: draftTarget || null,
+                    });
+                    setEditingTarget(false);
+                    showToast(draftTarget ? '目标日已保存' : '目标日已清除', 'success');
+                  }}
+                  className="text-xs text-blue-600 hover:underline"
+                  data-testid="target-end-date-save"
+                >
+                  保存
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setEditingTarget(false)}
+                  className="text-xs text-gray-400 hover:text-gray-600"
+                >
+                  取消
+                </button>
+              </span>
+            )}
+            {isArchived && <span className="text-amber-600">已归档</span>}
+          </div>
         </div>
-        <div className="flex gap-2">
+        <div className="flex gap-2 flex-wrap">
           {requirements && changes && (
             <>
               <SnapshotHistory projectId={project.id} changes={changes} />
@@ -113,6 +184,23 @@ export function ProjectHeader({ project, stats, requirements, changes, criticalP
               >
                 <ClipboardCopy size={14} />
                 复制报告
+              </button>
+              <button
+                onClick={async () => {
+                  const url = buildShareUrl({ v: 1, project, requirements, changes });
+                  try {
+                    await navigator.clipboard.writeText(url);
+                    showToast('只读分享链接已复制（任何人打开即看到当前状态）', 'success');
+                  } catch {
+                    showToast('复制失败 — 浏览器拒绝访问剪贴板', 'error');
+                  }
+                }}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg"
+                data-testid="copy-share-link"
+                title="生成项目当前状态的只读分享链接"
+              >
+                <Share2 size={14} />
+                分享只读
               </button>
             </>
           )}

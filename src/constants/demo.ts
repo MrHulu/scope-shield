@@ -6,6 +6,9 @@ export const DEMO_PROJECT: Project = {
   startDate: '2026-04-01',
   status: 'active',
   isDemo: true,
+  // W5.1 — give demo a target so the W4.8 chip + W5.1 banner have data.
+  // Picked 2026-04-20 so the 2026-04-25 overdue change below trips the chip.
+  targetEndDate: '2026-04-20',
   createdAt: '2026-04-01T00:00:00.000Z',
   updatedAt: '2026-04-01T00:00:00.000Z',
 };
@@ -125,9 +128,26 @@ export const DEMO_CHANGES: Change[] = [
     description: '订单支付需增加退款流程',
     daysDelta: 1.5,
     date: '2026-04-12',
-    metadata: { subType: 'feature_addition' },
+    metadata: { subType: 'feature_addition', tags: ['上线问题'] },
     screenshots: [],
     createdAt: '2026-04-12T10:00:00.000Z',
     updatedAt: '2026-04-12T10:00:00.000Z',
+  },
+  // W5.2 — overdue change (date > targetEndDate 2026-04-20).
+  // Demonstrates the W4.8 红色逾期 chip on a real demo row.
+  {
+    id: 'chg-005',
+    projectId: 'demo-001',
+    type: 'add_days',
+    targetRequirementId: 'req-001',
+    role: 'leader',
+    personName: '王总',
+    description: '上线前老板要求加审计日志',
+    daysDelta: 2,
+    date: '2026-04-25',
+    metadata: { tags: ['需求方反复'] },
+    screenshots: [],
+    createdAt: '2026-04-25T10:00:00.000Z',
+    updatedAt: '2026-04-25T10:00:00.000Z',
   },
 ];

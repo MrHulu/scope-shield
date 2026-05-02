@@ -27,6 +27,10 @@ export interface Project {
   isDemo: boolean;
   createdAt: string; // ISO datetime
   updatedAt: string;
+  /** W5.1 — manually set delivery deadline. When today > this, the project
+   * shows a red overdue chip; ChangeRow's W4.8 chip uses this instead of
+   * the dynamically-computed end date. */
+  targetEndDate?: string | null;
   _userId?: string | null;
   _teamId?: string | null;
   _feishuProjectId?: string | null;

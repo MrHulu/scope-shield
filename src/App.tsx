@@ -6,6 +6,7 @@ import { useChangeStore } from './stores/changeStore';
 import { MainLayout } from './components/layout/MainLayout';
 import { ProjectPage } from './pages/ProjectPage';
 import { SettingsPage } from './pages/SettingsPage';
+import { AnalyticsPage } from './pages/AnalyticsPage';
 import { NotFoundRedirect } from './pages/NotFoundRedirect';
 import { ToastContainer, showToast } from './components/shared/Toast';
 import { RecoveryDialog } from './components/shared/RecoveryDialog';
@@ -19,6 +20,8 @@ import { cleanupOldNames } from './db/personNameRepo';
 import { getLatestBackup, startAutoBackup } from './db/autoBackup';
 import { importData } from './db/exportImport';
 import type { AutoBackup } from './db/autoBackup';
+import { decodeShareLink, readShareTokenFromHash, type SharedSnapshot } from './services/shareLink';
+import { SharedViewPage } from './pages/SharedViewPage';
 
 export default function App() {
   const loadProjects = useProjectStore((s) => s.loadProjects);
@@ -26,6 +29,13 @@ export default function App() {
   const loadChanges = useChangeStore((s) => s.loadChanges);
   const [ready, setReady] = useState(false);
   const [recoveryBackup, setRecoveryBackup] = useState<AutoBackup | null>(null);
+  // W5.4 — read-only share view. When the URL has `#share=<token>`, decode
+  // the snapshot and render SharedViewPage instead of the normal router.
+  const [sharedSnapshot, setSharedSnapshot] = useState<SharedSnapshot | null>(() => {
+    if (typeof window === 'undefined') return null;
+    const token = readShareTokenFromHash();
+    return token ? decodeShareLink(token) : null;
+  });
 
   useEffect(() => {
     let cancelled = false;
@@ -100,6 +110,21 @@ export default function App() {
     setReady(true);
   }, [loadProjects, loadRequirements, loadChanges]);
 
+  if (sharedSnapshot) {
+    return (
+      <>
+        <SharedViewPage
+          snapshot={sharedSnapshot}
+          onClone={() => {
+            setSharedSnapshot(null);
+            window.location.hash = '';
+          }}
+        />
+        <ToastContainer />
+      </>
+    );
+  }
+
   if (recoveryBackup) {
     return (
       <>
@@ -128,6 +153,7 @@ export default function App() {
       <Routes>
         <Route element={<MainLayout />}>
           <Route path="/project/:id" element={<ProjectPage />} />
+          <Route path="/analytics" element={<AnalyticsPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/" element={<NotFoundRedirect />} />
           <Route path="*" element={<Navigate to="/" replace />} />

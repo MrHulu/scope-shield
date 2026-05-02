@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FolderOpen, Archive, Shield, Copy } from 'lucide-react';
+import { Plus, FolderOpen, Archive, Shield, Copy, BarChart3 } from 'lucide-react';
 import type { Project } from '../../types';
 import { LocalStorageBadge } from './LocalStorageBadge';
 import { ThemeToggle } from './ThemeToggle';
@@ -28,6 +28,9 @@ export function Sidebar({ projects, currentProjectId, onCreateProject, onDuplica
   // W2.7 — colored inflation chip per project. Computed live; updates as the
   // user records changes via the changeNotifier hook.
   const projectStats = useAllProjectStats(active);
+  // W5.1 — red dot when targetEndDate is past today.
+  const today = new Date().toISOString().slice(0, 10);
+  const isOverdue = (p: Project) => !!p.targetEndDate && today > p.targetEndDate;
 
   function inflationChip(projectId: string): JSX.Element | null {
     const s = projectStats.get(projectId);
@@ -151,6 +154,13 @@ export function Sidebar({ projects, currentProjectId, onCreateProject, onDuplica
               >
                 <FolderOpen size={14} />
                 <span className="truncate flex-1">{p.name}</span>
+                {isOverdue(p) && (
+                  <span
+                    className="w-1.5 h-1.5 rounded-full bg-red-500 shrink-0"
+                    title={`已超过目标交付日 ${p.targetEndDate}`}
+                    data-testid={`project-overdue-dot-${p.id}`}
+                  />
+                )}
                 {p.isDemo && <span className="text-[10px] text-gray-400">Demo</span>}
                 {inflationChip(p.id)}
               </button>
@@ -200,6 +210,14 @@ export function Sidebar({ projects, currentProjectId, onCreateProject, onDuplica
 
       {/* Footer */}
       <div className="p-3 border-t border-gray-200/60 space-y-2">
+        <button
+          onClick={() => navigate('/analytics')}
+          className="w-full text-left text-xs text-gray-500 px-3 py-2 rounded-lg hover:bg-gray-100/60 flex items-center gap-2"
+          data-testid="nav-analytics"
+        >
+          <BarChart3 size={12} />
+          数据看板
+        </button>
         <LocalStorageBadge />
         <ThemeToggle />
         <button

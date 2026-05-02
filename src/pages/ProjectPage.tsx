@@ -159,7 +159,7 @@ export function ProjectPage() {
             onRecord={recordChange}
             onUpdate={updateChange}
             onDelete={deleteChange}
-            projectEndDate={fullStats.endDate}
+            projectEndDate={project.targetEndDate ?? fullStats.endDate}
           />
         </div>
       </div>

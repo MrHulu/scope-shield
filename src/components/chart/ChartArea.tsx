@@ -47,7 +47,7 @@ export function ChartArea({ requirements, changes, schedule, onExport, stats, pr
 
   return (
     <div>
-      <div className="flex items-start justify-between px-5 pt-4 pb-2 gap-4">
+      <div className="flex items-start justify-between px-5 pt-4 pb-2 gap-4 flex-wrap">
         <div className="min-w-0">
           <h2 className="text-base font-semibold text-gray-900">工期对比</h2>
           {subtitle && (
@@ -55,7 +55,7 @@ export function ChartArea({ requirements, changes, schedule, onExport, stats, pr
           )}
         </div>
 
-        <div className="flex items-center gap-2 flex-shrink-0">
+        <div className="flex items-center gap-2 flex-shrink-0 flex-wrap">
           <div
             className="flex items-center gap-1 bg-gray-100/80 rounded-lg p-0.5"
             role="tablist"
@@ -124,20 +124,22 @@ export function ChartArea({ requirements, changes, schedule, onExport, stats, pr
         </div>
       </div>
 
-      <div className="px-4 pb-4" data-testid="chart-content">
-        {chartTab === 'simple' ? (
-          <SimpleChart
-            requirements={requirements}
-            changes={changes}
-            schedule={schedule}
-          />
-        ) : (
-          <DetailChart
-            requirements={requirements}
-            changes={changes}
-            schedule={schedule}
-          />
-        )}
+      <div className="px-4 pb-4 overflow-x-auto" data-testid="chart-content">
+        <div className="min-w-[560px]">
+          {chartTab === 'simple' ? (
+            <SimpleChart
+              requirements={requirements}
+              changes={changes}
+              schedule={schedule}
+            />
+          ) : (
+            <DetailChart
+              requirements={requirements}
+              changes={changes}
+              schedule={schedule}
+            />
+          )}
+        </div>
       </div>
 
       {projectId && (
