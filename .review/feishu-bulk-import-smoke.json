@@ -1,0 +1,40 @@
+{
+  "findings": [
+    {
+      "step": "S1",
+      "finding": "BulkImportModal 可见 = true"
+    },
+    {
+      "step": "S2",
+      "finding": "tab 文本 / 飞书 = true / true"
+    },
+    {
+      "step": "S3",
+      "finding": "飞书 tab textarea 可见 = true"
+    },
+    {
+      "step": "S4",
+      "finding": "解析后 row 数 = 3 (应 = 3)"
+    },
+    {
+      "step": "S5",
+      "finding": "拉取按钮初始可点 = true"
+    },
+    {
+      "step": "S6",
+      "finding": "拉取后 row 数 = 3"
+    },
+    {
+      "step": "S7",
+      "finding": "导入按钮 = \"导入 2 条（跳过 1 条失败）\" · 启用 = true"
+    },
+    {
+      "step": "S8",
+      "finding": "切回 CSV tab + 加载示例后 row 数 = 5 (应 = 5)"
+    }
+  ],
+  "errors": [
+    "console: Failed to load resource: the server responded with a status of 403 (Forbidden)",
+    "console: Failed to load resource: the server responded with a status of 403 (Forbidden)"
+  ]
+}
