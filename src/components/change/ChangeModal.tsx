@@ -11,6 +11,11 @@ import { compressImage, MAX_SCREENSHOTS } from '../../utils/image';
 import { showToast } from '../shared/Toast';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
 import { CHANGE_TAGS, TAG_COLORS } from '../../constants/changeTags';
+import {
+  getDefaultsForType,
+  rememberType,
+  CHANGE_TYPE_PICKER_ORDER,
+} from '../../services/changeDefaults';
 
 interface ChangeModalProps {
   open: boolean;
@@ -23,7 +28,8 @@ interface ChangeModalProps {
 }
 
 export function ChangeModal({ open, projectId, requirements, editingChange, onSave, onUpdate, onClose }: ChangeModalProps) {
-  const [type, setType] = useState<ChangeType>('add_days');
+  // W6.1 — default to supplement; it's the highest-frequency type at meetings.
+  const [type, setType] = useState<ChangeType>('supplement');
   const [targetId, setTargetId] = useState<string | null>(null);
   const [role, setRole] = useState<Role>('pm');
   const [personName, setPersonName] = useState('');
@@ -81,21 +87,24 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
         setTags((editingChange.metadata?.tags as string[] | undefined) ?? []);
         setStep('details'); // editing — fields populated, skip type selection
       } else {
-        // Create mode: reset all. Default to step='details' with type=add_days
-        // so the form is immediately usable; users who want a different type
-        // click "← 选其他类型" to expand the picker grid.
-        setType('add_days');
+        // Create mode: default type = supplement (W6.1, highest-freq), pull
+        // sticky-or-first-time defaults for that type. Step starts at
+        // 'details' so the form is immediately fillable; the type picker
+        // is one click away via "选其他类型".
+        const startType: ChangeType = 'supplement';
+        const d = getDefaultsForType(startType, requirements);
+        setType(startType);
         setTargetId(null);
         setRole('pm');
         setPersonName('');
         setDescription('');
-        setDaysDelta('');
+        setDaysDelta(d.daysDelta ?? '');
         setDate(today());
         setNewReqName('');
-        setNewReqDays('');
-        setNewReqDependsOn('');
+        setNewReqDays(d.newReqDays ?? '');
+        setNewReqDependsOn(d.newReqDependsOn ?? '');
         setRemainingDays('');
-        setSupplementSubType('feature_addition');
+        setSupplementSubType(d.subType ?? 'feature_addition');
         setReprioritizeTarget('');
         setReprioritizeNewDep('');
         setScreenshots([]);
@@ -114,6 +123,35 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
     document.addEventListener('keydown', handler);
     return () => document.removeEventListener('keydown', handler);
   }, [open, onClose]);
+
+  // W6.1 — apply per-type defaults when user picks a type (via click or digit key).
+  const applyTypeChange = useCallback((next: ChangeType) => {
+    const d = getDefaultsForType(next, requirements);
+    setType(next);
+    setTargetId(null);
+    setDaysDelta(d.daysDelta ?? '');
+    setNewReqDays(d.newReqDays ?? '');
+    setNewReqDependsOn(d.newReqDependsOn ?? '');
+    if (d.subType) setSupplementSubType(d.subType);
+    setStep('details');
+  }, [requirements]);
+
+  // W6.1 — digit keys 1..7 select type when on the picker step (no input focused).
+  useEffect(() => {
+    if (!open || isEditing || step !== 'type') return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.metaKey || e.ctrlKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const tag = target?.tagName ?? '';
+      if (tag === 'INPUT' || tag === 'TEXTAREA' || tag === 'SELECT' || target?.isContentEditable) return;
+      const idx = parseInt(e.key, 10);
+      if (Number.isNaN(idx) || idx < 1 || idx > CHANGE_TYPE_PICKER_ORDER.length) return;
+      e.preventDefault();
+      applyTypeChange(CHANGE_TYPE_PICKER_ORDER[idx - 1]);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open, isEditing, step, applyTypeChange]);
 
   const addScreenshot = useCallback(async (file: File) => {
     if (screenshots.length >= MAX_SCREENSHOTS) return;
@@ -277,6 +315,13 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
           newRequirementDays: type === 'new_requirement' ? parseFloat(newReqDays) : undefined,
         };
         await onSave(input);
+        // W6.1 — persist sticky values for this type so next open prefills.
+        rememberType(type, {
+          daysDelta: type === 'add_days' || type === 'supplement' ? String(daysDelta) : undefined,
+          subType: type === 'supplement' ? supplementSubType : undefined,
+          newReqDays: type === 'new_requirement' ? newReqDays : undefined,
+          newReqDependsOn: type === 'new_requirement' ? newReqDependsOn : undefined,
+        });
       }
       onClose();
     } catch (err) {
@@ -314,24 +359,28 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
           {/* Step 1: Type picker — also shown in edit mode (locked) for context */}
           {step === 'type' && !isEditing && (
             <div data-testid="change-modal-step-type">
-              <label className="text-xs text-gray-500 mb-2 block">想记录什么类型的变更？</label>
+              <label className="text-xs text-gray-500 mb-2 flex items-center justify-between">
+                <span>想记录什么类型的变更？</span>
+                <span className="text-[11px] text-blue-600 bg-blue-50 px-2 py-0.5 rounded font-medium">
+                  💡 按数字键 1-7 快速选择
+                </span>
+              </label>
               <div className="grid grid-cols-2 gap-2">
-                {CHANGE_TYPES.map((t) => (
+                {CHANGE_TYPE_PICKER_ORDER.map((t, idx) => (
                   <button
                     key={t}
-                    onClick={() => {
-                      setType(t);
-                      setTargetId(null);
-                      setStep('details');
-                    }}
-                    className={`text-sm px-3 py-2.5 rounded-lg border text-left ${
+                    onClick={() => applyTypeChange(t)}
+                    className={`text-sm px-3 py-2.5 rounded-lg border text-left flex items-center justify-between ${
                       type === t
                         ? 'border-blue-500 bg-blue-50 text-blue-700 font-medium'
                         : 'border-gray-200 text-gray-700 hover:bg-gray-50'
                     }`}
                     data-testid={`change-type-${t}`}
                   >
-                    {CHANGE_TYPE_LABELS[t]}
+                    <span>{CHANGE_TYPE_LABELS[t]}</span>
+                    <kbd className="text-[10px] font-mono px-1.5 py-0.5 rounded border border-gray-300 text-gray-400 bg-white/50 ml-2">
+                      {idx + 1}
+                    </kbd>
                   </button>
                 ))}
               </div>
