@@ -45,6 +45,15 @@ export function SnapshotHistory({ projectId, changes }: SnapshotHistoryProps) {
     };
   }, [open, projectId]);
 
+  useEffect(() => {
+    if (!open) return;
+    const handler = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setOpen(false);
+    };
+    document.addEventListener('keydown', handler);
+    return () => document.removeEventListener('keydown', handler);
+  }, [open]);
+
   return (
     <>
       <button
