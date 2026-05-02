@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { Plus, FolderOpen, Archive, Shield } from 'lucide-react';
 import type { Project } from '../../types';
 import { LocalStorageBadge } from './LocalStorageBadge';
+import { ThemeToggle } from './ThemeToggle';
 
 interface SidebarProps {
   projects: Project[];
@@ -126,8 +127,9 @@ export function Sidebar({ projects, currentProjectId, onCreateProject }: Sidebar
       </div>
 
       {/* Footer */}
-      <div className="p-3 border-t border-gray-200/60 space-y-1">
+      <div className="p-3 border-t border-gray-200/60 space-y-2">
         <LocalStorageBadge />
+        <ThemeToggle />
         <button
           onClick={() => navigate('/settings')}
           className="w-full text-left text-xs text-gray-500 px-3 py-2 rounded-lg hover:bg-gray-100/60"

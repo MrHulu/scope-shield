@@ -133,3 +133,74 @@
 .highlight-pulse {
   animation: highlight-pulse 1500ms ease-out;
 }
+
+/* ─── Dark mode overrides ───────────────────────────────────────────────
+ * Apple Sequoia-style dark glass: graphite-tinted panels over a deep blue
+ * gradient. Activated by setting `data-theme="dark"` on <html> (the
+ * themeStore writes that attr based on user choice + system preference).
+ *
+ * We intentionally only override CSS custom properties — utility classes
+ * (.glass-panel etc.) keep using var(--glass-bg) and pick up the new
+ * values automatically. This is why the W1.1 tokens were the right
+ * abstraction: dark mode dropped in with no per-component changes.
+ */
+:root[data-theme='dark'] {
+  /* Glass material — graphite + blue tint */
+  --glass-bg: rgba(28, 28, 32, 0.62);
+  --glass-bg-strong: rgba(38, 38, 44, 0.78);
+  --glass-bg-tinted: rgba(20, 22, 30, 0.78);
+  --glass-fallback: #1a1a1f;
+  --glass-border: 1px solid rgba(255, 255, 255, 0.08);
+  --glass-border-subtle: 1px solid rgba(255, 255, 255, 0.05);
+
+  /* App backdrop — deep blue → purple → orange (mirrors light gradient) */
+  --backdrop-app: linear-gradient(
+    135deg,
+    #0d1424 0%,
+    #1a1230 35%,
+    #2d1422 100%
+  );
+  --backdrop-card: linear-gradient(180deg, #1c1c20 0%, #14141a 100%);
+
+  /* Shadows — softer in dark to compensate for low contrast */
+  --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.4), 0 4px 16px -6px rgba(0, 0, 0, 0.6);
+  --shadow-card-hover: 0 1px 3px rgba(0, 0, 0, 0.45), 0 8px 24px -8px rgba(0, 0, 0, 0.7);
+  --shadow-modal: 0 20px 48px -12px rgba(0, 0, 0, 0.7), 0 4px 12px rgba(0, 0, 0, 0.4);
+
+  color-scheme: dark;
+}
+
+/* Map Tailwind defaults to dark equivalents under data-theme="dark".
+ * We only redefine the surfaces / fills the app uses — no global
+ * color reset to keep the diff small. */
+:root[data-theme='dark'] body {
+  color: #e5e7eb; /* gray-200 */
+}
+
+/* Tailwind text utilities the app uses heavily — re-tint under dark. */
+:root[data-theme='dark'] .text-gray-900 { color: #f3f4f6; }
+:root[data-theme='dark'] .text-gray-700 { color: #d1d5db; }
+:root[data-theme='dark'] .text-gray-600 { color: #9ca3af; }
+:root[data-theme='dark'] .text-gray-500 { color: #9ca3af; }
+:root[data-theme='dark'] .text-gray-400 { color: #6b7280; }
+:root[data-theme='dark'] .text-gray-300 { color: #4b5563; }
+
+/* Inputs / borders that still use raw Tailwind classes. */
+:root[data-theme='dark'] .border-gray-200 { border-color: rgba(255, 255, 255, 0.08); }
+:root[data-theme='dark'] .border-gray-300 { border-color: rgba(255, 255, 255, 0.12); }
+:root[data-theme='dark'] .bg-gray-50 { background-color: rgba(255, 255, 255, 0.03); }
+:root[data-theme='dark'] .bg-gray-100 { background-color: rgba(255, 255, 255, 0.05); }
+:root[data-theme='dark'] .bg-blue-50 { background-color: rgba(37, 99, 235, 0.15); }
+:root[data-theme='dark'] .bg-blue-100 { background-color: rgba(37, 99, 235, 0.25); }
+:root[data-theme='dark'] .bg-blue-50\/50 { background-color: rgba(37, 99, 235, 0.08); }
+:root[data-theme='dark'] .border-blue-100 { border-color: rgba(37, 99, 235, 0.25); }
+:root[data-theme='dark'] .hover\:bg-gray-50:hover { background-color: rgba(255, 255, 255, 0.04); }
+:root[data-theme='dark'] .hover\:bg-gray-100:hover { background-color: rgba(255, 255, 255, 0.06); }
+:root[data-theme='dark'] .hover\:bg-gray-200:hover { background-color: rgba(255, 255, 255, 0.08); }
+:root[data-theme='dark'] input,
+:root[data-theme='dark'] select,
+:root[data-theme='dark'] textarea {
+  background-color: rgba(255, 255, 255, 0.04);
+  color: #f3f4f6;
+}
+:root[data-theme='dark'] kbd { background-color: rgba(255, 255, 255, 0.1); color: #f3f4f6; }

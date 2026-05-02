@@ -10,6 +10,7 @@ import { NotFoundRedirect } from './pages/NotFoundRedirect';
 import { ToastContainer, showToast } from './components/shared/Toast';
 import { RecoveryDialog } from './components/shared/RecoveryDialog';
 import { CommandPalette } from './components/command/CommandPalette';
+import { startSystemThemeListener } from './stores/themeStore';
 import { seedDemoData } from './db/seedDemo';
 import { cleanupOldNames } from './db/personNameRepo';
 import { getLatestBackup, startAutoBackup } from './db/autoBackup';
@@ -51,7 +52,11 @@ export default function App() {
   useEffect(() => {
     cleanupOldNames();
     const cleanup = startAutoBackup();
-    return cleanup;
+    const stopThemeListener = startSystemThemeListener();
+    return () => {
+      cleanup();
+      stopThemeListener();
+    };
   }, []);
 
   const handleRestore = useCallback(async () => {
