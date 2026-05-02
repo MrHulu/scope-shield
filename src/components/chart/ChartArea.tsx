@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Download, Maximize2, Minimize2, Play } from 'lucide-react';
 import type { Change, ProjectStats, Requirement, ScheduleResult } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
@@ -152,9 +153,11 @@ export function ChartArea({ requirements, changes, schedule, onExport, stats, pr
         />
       )}
 
-      {/* W3.9 — Fullscreen overlay. Re-renders the same chart at viewport
-          scale; Esc closes (handled in the effect above). */}
-      {fullscreen && (
+      {/* W3.9 — Fullscreen overlay, portaled to <body> so it actually fills
+          the viewport (escape any glass-panel-hover ancestor whose :hover
+          transform would otherwise turn it into the containing block for
+          fixed positioning). Esc closes (handled in the effect above). */}
+      {fullscreen && createPortal(
         <div
           className="fixed inset-0 bg-white app-backdrop overflow-auto"
           style={{ zIndex: 'var(--z-modal)' }}
@@ -181,7 +184,8 @@ export function ChartArea({ requirements, changes, schedule, onExport, stats, pr
               <DetailChart requirements={requirements} changes={changes} schedule={schedule} />
             )}
           </div>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );

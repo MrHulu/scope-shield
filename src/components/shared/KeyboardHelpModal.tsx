@@ -10,7 +10,7 @@ interface Shortcut {
 
 const SHORTCUTS: Shortcut[] = [
   { keys: ['⌘', 'K'], label: '打开命令面板（搜索项目/需求/变更）', group: 'global' },
-  { keys: ['⌘', '⇧', 'C'], label: '记录变更', group: 'global' },
+  { keys: ['C'], label: '记录变更（无输入聚焦时）', group: 'global' },
   { keys: ['⌘', 'Z'], label: '撤销最近一次变更删除', group: 'global' },
   { keys: ['?'], label: '显示快捷键帮助', group: 'global' },
   { keys: ['Esc'], label: '关闭当前弹窗 / 帮助', group: 'modal' },

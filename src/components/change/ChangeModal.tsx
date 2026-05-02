@@ -1,4 +1,5 @@
 import { useState, useEffect, useCallback, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { X, ImagePlus } from 'lucide-react';
 import type { Change, ChangeType, Role, Requirement, CreateChangeInput, SupplementSubType } from '../../types';
 import { CHANGE_TYPE_LABELS, CHANGE_TYPES, SUPPLEMENT_SUBTYPE_LABELS } from '../../constants/changeTypes';
@@ -278,7 +279,10 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
     }
   };
 
-  return (
+  // Portal to <body> so the modal isn't trapped inside any ancestor with
+  // `transform` (e.g. `.glass-panel-hover:hover`) that would otherwise become
+  // the containing block for `position: fixed` and offset the centering.
+  return createPortal(
     <div
       className="fixed inset-0 flex items-center justify-center bg-black/40"
       style={{ zIndex: 'var(--z-modal)' }}
@@ -698,6 +702,7 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
           )}
         </div>
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }
