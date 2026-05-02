@@ -5,6 +5,7 @@ import { useState } from 'react';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
 import { generateMarkdownReport } from '../../services/reportGenerator';
 import { showToast } from '../shared/Toast';
+import { SnapshotHistory } from '../snapshot/SnapshotHistory';
 
 interface ProjectHeaderProps {
   project: Project;
@@ -56,29 +57,32 @@ export function ProjectHeader({ project, stats, requirements, changes, criticalP
         </div>
         <div className="flex gap-2">
           {requirements && changes && (
-            <button
-              onClick={async () => {
-                const md = generateMarkdownReport({
-                  project,
-                  stats,
-                  requirements,
-                  changes,
-                  criticalPath,
-                });
-                try {
-                  await navigator.clipboard.writeText(md);
-                  showToast('已复制 Markdown 报告（可贴到飞书 / 邮件）', 'success');
-                } catch {
-                  showToast('复制失败 — 浏览器拒绝访问剪贴板', 'error');
-                }
-              }}
-              className="flex items-center gap-1.5 text-sm px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg"
-              data-testid="copy-markdown-report"
-              title="生成项目状态 Markdown，复制到剪贴板"
-            >
-              <ClipboardCopy size={14} />
-              复制报告
-            </button>
+            <>
+              <SnapshotHistory projectId={project.id} changes={changes} />
+              <button
+                onClick={async () => {
+                  const md = generateMarkdownReport({
+                    project,
+                    stats,
+                    requirements,
+                    changes,
+                    criticalPath,
+                  });
+                  try {
+                    await navigator.clipboard.writeText(md);
+                    showToast('已复制 Markdown 报告（可贴到飞书 / 邮件）', 'success');
+                  } catch {
+                    showToast('复制失败 — 浏览器拒绝访问剪贴板', 'error');
+                  }
+                }}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg"
+                data-testid="copy-markdown-report"
+                title="生成项目状态 Markdown，复制到剪贴板"
+              >
+                <ClipboardCopy size={14} />
+                复制报告
+              </button>
+            </>
           )}
           {isArchived ? (
             <button

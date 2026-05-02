@@ -12,6 +12,7 @@ import { RecoveryDialog } from './components/shared/RecoveryDialog';
 import { CommandPalette } from './components/command/CommandPalette';
 import { KeyboardHelpModal } from './components/shared/KeyboardHelpModal';
 import { UndoHandler } from './components/shared/UndoHandler';
+import { NavigationKeys } from './components/shared/NavigationKeys';
 import { startSystemThemeListener } from './stores/themeStore';
 import { seedDemoData } from './db/seedDemo';
 import { cleanupOldNames } from './db/personNameRepo';
@@ -135,6 +136,7 @@ export default function App() {
       <CommandPalette />
       <KeyboardHelpModal />
       <UndoHandler />
+      <NavigationKeys />
       <ToastContainer />
     </BrowserRouter>
   );

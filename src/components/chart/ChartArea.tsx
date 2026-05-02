@@ -1,4 +1,5 @@
-import { Download } from 'lucide-react';
+import { useEffect, useState } from 'react';
+import { Download, Maximize2, Minimize2 } from 'lucide-react';
 import type { Change, ProjectStats, Requirement, ScheduleResult } from '../../types';
 import { useUIStore } from '../../stores/uiStore';
 import { SimpleChart } from './SimpleChart';
@@ -17,6 +18,17 @@ interface ChartAreaProps {
 export function ChartArea({ requirements, changes, schedule, onExport, stats }: ChartAreaProps) {
   const chartTab = useUIStore((s) => s.chartTab);
   const setChartTab = useUIStore((s) => s.setChartTab);
+  const [fullscreen, setFullscreen] = useState(false);
+
+  // W3.9 — Esc closes fullscreen.
+  useEffect(() => {
+    if (!fullscreen) return;
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setFullscreen(false);
+    };
+    window.addEventListener('keydown', onKey);
+    return () => window.removeEventListener('keydown', onKey);
+  }, [fullscreen]);
 
   const hasRequirements = requirements.length > 0;
 
@@ -79,6 +91,18 @@ export function ChartArea({ requirements, changes, schedule, onExport, stats }: 
             <Download size={12} />
             导出图片
           </button>
+
+          <button
+            type="button"
+            onClick={() => setFullscreen((v) => !v)}
+            disabled={!hasRequirements}
+            className="flex items-center gap-1 text-xs text-gray-500 hover:text-gray-700 hover:bg-gray-100/70 px-2 py-1 rounded-lg disabled:opacity-40 disabled:cursor-not-allowed"
+            title={fullscreen ? '退出全屏 (Esc)' : '全屏图表'}
+            data-testid="chart-fullscreen-toggle"
+          >
+            {fullscreen ? <Minimize2 size={12} /> : <Maximize2 size={12} />}
+            {fullscreen ? '退出全屏' : '全屏'}
+          </button>
         </div>
       </div>
 
@@ -97,6 +121,38 @@ export function ChartArea({ requirements, changes, schedule, onExport, stats }: 
           />
         )}
       </div>
+
+      {/* W3.9 — Fullscreen overlay. Re-renders the same chart at viewport
+          scale; Esc closes (handled in the effect above). */}
+      {fullscreen && (
+        <div
+          className="fixed inset-0 bg-white app-backdrop overflow-auto"
+          style={{ zIndex: 'var(--z-modal)' }}
+          data-testid="chart-fullscreen-overlay"
+        >
+          <div className="max-w-7xl mx-auto px-8 py-6">
+            <div className="flex items-center justify-between mb-4">
+              <div>
+                <h2 className="text-2xl font-semibold text-gray-900">工期对比</h2>
+                {subtitle && <p className="text-sm text-gray-500 mt-1">{subtitle}</p>}
+              </div>
+              <button
+                type="button"
+                onClick={() => setFullscreen(false)}
+                className="flex items-center gap-1 text-sm text-gray-600 hover:bg-gray-100 px-3 py-1.5 rounded-lg"
+              >
+                <Minimize2 size={14} />
+                退出全屏 (Esc)
+              </button>
+            </div>
+            {chartTab === 'simple' ? (
+              <SimpleChart requirements={requirements} changes={changes} schedule={schedule} />
+            ) : (
+              <DetailChart requirements={requirements} changes={changes} schedule={schedule} />
+            )}
+          </div>
+        </div>
+      )}
     </div>
   );
 }
