@@ -1,5 +1,5 @@
 import { useEffect, useState, useCallback } from 'react';
-import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
+import { BrowserRouter, MemoryRouter, Routes, Route, Navigate } from 'react-router-dom';
 import { useProjectStore } from './stores/projectStore';
 import { useRequirementStore } from './stores/requirementStore';
 import { useChangeStore } from './stores/changeStore';
@@ -111,8 +111,11 @@ export default function App() {
   }, [loadProjects, loadRequirements, loadChanges]);
 
   if (sharedSnapshot) {
+    // Share mode renders ChangeList/RequirementList which call
+    // useSearchParams, so it needs a router context. MemoryRouter keeps the
+    // share URL fragment from getting overwritten by react-router-dom.
     return (
-      <>
+      <MemoryRouter>
         <SharedViewPage
           snapshot={sharedSnapshot}
           onClone={() => {
@@ -121,7 +124,7 @@ export default function App() {
           }}
         />
         <ToastContainer />
-      </>
+      </MemoryRouter>
     );
   }
 
