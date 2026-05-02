@@ -161,6 +161,146 @@ describe('processChange', () => {
     });
   });
 
+  describe('cancel 级联 (W2.2)', () => {
+    it('clears dependsOn on every requirement that pointed at the cancelled one', () => {
+      const reqs = [
+        makeReq({ id: 'r1', sortOrder: 0, dependsOn: null }),
+        makeReq({ id: 'r2', sortOrder: 1, dependsOn: 'r1' }),
+        makeReq({ id: 'r3', sortOrder: 2, dependsOn: 'r1' }),
+        makeReq({ id: 'r4', sortOrder: 3, dependsOn: 'r2' }), // not direct dep — preserved
+      ];
+      const input = makeInput({ type: 'cancel_requirement', targetRequirementId: 'r1' });
+      const result = processChange(input, reqs);
+      const r2 = result.updatedRequirements.find((r) => r.id === 'r2')!;
+      const r3 = result.updatedRequirements.find((r) => r.id === 'r3')!;
+      const r4 = result.updatedRequirements.find((r) => r.id === 'r4')!;
+      expect(r2.dependsOn).toBeNull();
+      expect(r3.dependsOn).toBeNull();
+      // Indirect dependency (r4 → r2) is preserved — only direct deps clear.
+      expect(r4.dependsOn).toBe('r2');
+    });
+
+    it('refuses to cancel an already-cancelled requirement (early break)', () => {
+      const reqs = [
+        makeReq({ id: 'r1', currentDays: 4, status: 'cancelled' }),
+        makeReq({ id: 'r2', dependsOn: 'r1' }),
+      ];
+      const before = JSON.stringify(reqs);
+      processChange(
+        makeInput({ type: 'cancel_requirement', targetRequirementId: 'r1' }),
+        reqs,
+      );
+      // Engine clones; nothing in the input array changes.
+      expect(JSON.stringify(reqs)).toBe(before);
+    });
+
+    it('refuses to cancel a paused requirement (only active is cancellable)', () => {
+      const reqs = [makeReq({ id: 'r1', status: 'paused', pausedRemainingDays: 2 })];
+      const result = processChange(
+        makeInput({ type: 'cancel_requirement', targetRequirementId: 'r1' }),
+        reqs,
+      );
+      const r1 = result.updatedRequirements.find((r) => r.id === 'r1')!;
+      expect(r1.status).toBe('paused');
+    });
+
+    it('preserves currentDays on cancelled requirement (does not zero it)', () => {
+      const reqs = [makeReq({ id: 'r1', currentDays: 4 })];
+      const result = processChange(
+        makeInput({ type: 'cancel_requirement', targetRequirementId: 'r1' }),
+        reqs,
+      );
+      const r1 = result.updatedRequirements.find((r) => r.id === 'r1')!;
+      expect(r1.status).toBe('cancelled');
+      expect(r1.currentDays).toBe(4); // preserved!
+      expect(result.change.daysDelta).toBe(-4); // delta records the savings
+    });
+
+    it('writes metadata.cancelledRequirementName + cancelledDays for replay safety', () => {
+      const reqs = [makeReq({ id: 'r1', name: '已废需求', currentDays: 7 })];
+      const result = processChange(
+        makeInput({ type: 'cancel_requirement', targetRequirementId: 'r1' }),
+        reqs,
+      );
+      expect(result.change.metadata?.cancelledRequirementName).toBe('已废需求');
+      expect(result.change.metadata?.cancelledDays).toBe(7);
+    });
+  });
+
+  describe('supplement cascadeTargets (W2.2)', () => {
+    it('records cascadeTargets when supplement.daysDelta > 0 has active downstream', () => {
+      const reqs = [
+        makeReq({ id: 'r1', sortOrder: 0 }),
+        makeReq({ id: 'r2', sortOrder: 1, dependsOn: 'r1' }),
+        makeReq({ id: 'r3', sortOrder: 2, dependsOn: 'r1' }),
+      ];
+      const result = processChange(
+        makeInput({
+          type: 'supplement',
+          targetRequirementId: 'r1',
+          daysDelta: 1,
+          metadata: { subType: 'feature_addition' },
+        }),
+        reqs,
+      );
+      // Order is iteration order; just sort to compare.
+      expect((result.change.metadata?.cascadeTargets as string[]).sort()).toEqual([
+        'r2',
+        'r3',
+      ]);
+    });
+
+    it('omits cascadeTargets when supplement.daysDelta === 0', () => {
+      const reqs = [
+        makeReq({ id: 'r1' }),
+        makeReq({ id: 'r2', dependsOn: 'r1' }),
+      ];
+      const result = processChange(
+        makeInput({
+          type: 'supplement',
+          targetRequirementId: 'r1',
+          daysDelta: 0,
+          metadata: { subType: 'condition_change' },
+        }),
+        reqs,
+      );
+      // Recording-only: no cascadeTargets emitted because there's no schedule shift.
+      expect(result.change.metadata?.cascadeTargets).toBeUndefined();
+    });
+
+    it('skips cancelled downstream requirements from cascadeTargets', () => {
+      const reqs = [
+        makeReq({ id: 'r1' }),
+        makeReq({ id: 'r2', dependsOn: 'r1', status: 'cancelled' }), // skipped
+        makeReq({ id: 'r3', dependsOn: 'r1' }),
+      ];
+      const result = processChange(
+        makeInput({
+          type: 'supplement',
+          targetRequirementId: 'r1',
+          daysDelta: 2,
+          metadata: { subType: 'feature_addition' },
+        }),
+        reqs,
+      );
+      expect(result.change.metadata?.cascadeTargets).toEqual(['r3']);
+    });
+
+    it('cascadeTargets stays absent when no downstream requirements exist', () => {
+      const reqs = [makeReq({ id: 'solo' })];
+      const result = processChange(
+        makeInput({
+          type: 'supplement',
+          targetRequirementId: 'solo',
+          daysDelta: 1,
+          metadata: { subType: 'feature_addition' },
+        }),
+        reqs,
+      );
+      expect(result.change.metadata?.cascadeTargets).toBeUndefined();
+    });
+  });
+
   describe('cancel_requirement', () => {
     it('sets status to cancelled and preserves currentDays', () => {
       const reqs = [makeReq({ id: 'r1', currentDays: 5 })];

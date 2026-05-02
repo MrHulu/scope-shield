@@ -192,6 +192,67 @@ export function mapFeishuWorkItemToDraft(raw: unknown, sourceUrl: string): Requi
   };
 }
 
+/**
+ * Cached login probe state — populated by prefetchLoginStatus() and consumed
+ * by analyzeFeishuRequirementUrl() to short-circuit the slow demand_fetch
+ * round trip when we already know the user is unauthenticated.
+ *
+ * The 30s TTL is a balance: long enough that the user opening the form,
+ * pasting a URL, and clicking 解析 all reuse one probe; short enough that
+ * a successful 一键登录 mid-session invalidates the cache reasonably fast
+ * (clearLoginCache() also gets called explicitly after the login flow).
+ */
+let _loginCache: { authed: boolean; expiresAt: number } | null = null;
+const LOGIN_CACHE_TTL = 30_000;
+
+/**
+ * Probe `/goapi/v1/project/trans_simple_name` and cache the auth state for
+ * 30s. Cheap (~50ms when cookies are good, ~200ms when not), and dropping
+ * the result into a module-level cache means analyzeFeishuRequirementUrl()
+ * can skip its 3-second demand_fetch round trip when we already know the
+ * user isn't logged in.
+ *
+ * Returns `true` only when the API responds with `code: 0`. All other
+ * shapes (HTTP errors, network errors, code != 0) cache as unauthenticated
+ * so the UI degrades to the url-only path.
+ */
+export async function prefetchLoginStatus(
+  fetcher: typeof fetch = fetch,
+): Promise<boolean> {
+  if (_loginCache && _loginCache.expiresAt > Date.now()) {
+    return _loginCache.authed;
+  }
+  try {
+    const r = await fetcher('/api/feishu/v1/project/trans_simple_name', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ simple_name_list: [] }),
+    });
+    if (!r.ok) {
+      _loginCache = { authed: false, expiresAt: Date.now() + LOGIN_CACHE_TTL };
+      return false;
+    }
+    const j = (await r.json().catch(() => null)) as { code?: number } | null;
+    const authed = j?.code === 0;
+    _loginCache = { authed, expiresAt: Date.now() + LOGIN_CACHE_TTL };
+    return authed;
+  } catch {
+    _loginCache = { authed: false, expiresAt: Date.now() + LOGIN_CACHE_TTL };
+    return false;
+  }
+}
+
+/** Drop the cached probe result. Call this right after a one-click login
+ *  so the next analyze attempt re-probes instead of returning stale data. */
+export function clearLoginCache(): void {
+  _loginCache = null;
+}
+
+/** Test-only: read the current cache contents (or null if none). */
+export function _getLoginCacheForTest(): typeof _loginCache {
+  return _loginCache;
+}
+
 export async function analyzeFeishuRequirementUrl(
   url: string,
   options: AnalyzeFeishuRequirementOptions = {},
@@ -204,6 +265,12 @@ export async function analyzeFeishuRequirementUrl(
 
   const fetcher = options.fetcher ?? fetch;
   const proxyBase = '/api/feishu';
+
+  // Fast path: prefetched cache says we're not logged in → skip the slow
+  // demand_fetch round trip entirely (was 3-4s on the secretary walkthrough).
+  if (_loginCache && _loginCache.expiresAt > Date.now() && !_loginCache.authed) {
+    return urlOnlyDraft(source, '飞书未登录，登录后会自动拉取需求信息');
+  }
 
   try {
     const response = await fetcher(`${proxyBase}/v5/workitem/v1/demand_fetch`, {

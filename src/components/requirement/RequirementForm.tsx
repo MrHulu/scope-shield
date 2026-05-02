@@ -1,10 +1,12 @@
-import { useRef, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { Link2, Wand2 } from 'lucide-react';
 import type { Requirement, CreateRequirementInput } from '../../types';
 import { validateDays } from '../../utils/validation';
 import {
   analyzeFeishuRequirementUrl,
   buildFeishuRequirementSource,
+  clearLoginCache,
+  prefetchLoginStatus,
 } from '../../services/feishuRequirement';
 
 interface RequirementFormProps {
@@ -29,6 +31,16 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
   const analyzeSeqRef = useRef(0);
   const activeAnalyzeSeqRef = useRef<number | null>(null);
   const sourceUrlRef = useRef('');
+
+  // Prefetch the feishu login probe as soon as the form mounts. The result
+  // is cached for 30s in the service layer; analyzeFeishuRequirementUrl()
+  // checks this cache and skips its 3-4s demand_fetch round trip when the
+  // user is unauthenticated. Net effect: pasting + 解析 lands in <800ms
+  // when not logged in instead of 3.6s (秘书 baseline walkthrough W2). The
+  // UI does NOT eagerly surface the login state — we just warm the cache.
+  useEffect(() => {
+    void prefetchLoginStatus();
+  }, []);
 
   const handleAnalyzeUrl = async () => {
     const trimmedUrl = sourceUrl.trim();
@@ -93,6 +105,9 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
       }
       setLoggingIn(false);
       setNeedsLogin(false);
+      // Cookies just changed; the cached probe result from before login is
+      // now stale. Drop it so the next analyze (immediately below) re-probes.
+      clearLoginCache();
       // 登录成功 → 自动重新解析当前 URL，自动回填字段
       void handleAnalyzeUrl();
     } catch (err) {
