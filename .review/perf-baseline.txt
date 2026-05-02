@@ -1,0 +1,26 @@
+Scope Shield · Performance Baseline (2026-05-02)
+=================================================
+Captured by W2.10 — `npx vitest bench --run`
+Hardware: macOS · Apple Silicon (vary on CI; relative ratios are the regression signal).
+
+schedule() — pure CPU, no IDB:
+  100 reqs · parallel                              69,793 hz   (0.014 ms / call)
+  100 reqs · linear chain                          13,969 hz   (0.072 ms / call)
+  500 reqs · parallel                              12,546 hz   (0.080 ms / call)
+  500 reqs · linear chain (critical-path heavy)     1,013 hz   (0.987 ms / call)
+  1000 reqs · parallel                              5,740 hz   (0.174 ms / call)
+
+processChange() — single-shot:
+  add_days on 100-req chain                       588,804 hz   (0.0017 ms)
+  cancel_requirement cascade on 100 chain         538,606 hz   (0.0019 ms)
+
+applyChangeForReplay():
+  replay 1 add_days against 500 reqs              160,412 hz   (0.0062 ms)
+
+Read this as: 1 schedule() pass over a 500-req linear-chain project takes ≈1ms,
+which is well below frame budget. The ~70× hit between parallel-100 and
+linear-500 is critical-path traversal cost and is expected — guard against
+regressions that turn O(N) into O(N²).
+
+Regression policy: any 3× slowdown in any of the rows above is a red flag —
+re-bench in CI / locally before landing engine changes.
