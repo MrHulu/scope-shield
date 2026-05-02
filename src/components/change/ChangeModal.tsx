@@ -32,6 +32,8 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
   const [date, setDate] = useState(today());
   const [newReqName, setNewReqName] = useState('');
   const [newReqDays, setNewReqDays] = useState('');
+  // '' = no prerequisite (parallel insertion); otherwise a requirement id.
+  const [newReqDependsOn, setNewReqDependsOn] = useState<string>('');
   const [remainingDays, setRemainingDays] = useState('');
   const [supplementSubType, setSupplementSubType] = useState<SupplementSubType>('feature_addition');
   // reprioritize: 直接选目标需求 + 新前置依赖（'' = 未选 / '__null__' = 无前置 / <reqId> = 选了某条）
@@ -64,6 +66,7 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
         setDate(editingChange.date);
         setNewReqName(editingChange.metadata?.newRequirementName ?? '');
         setNewReqDays(editingChange.type === 'new_requirement' ? String(editingChange.daysDelta) : '');
+        setNewReqDependsOn(editingChange.metadata?.newRequirementDependsOn ?? '');
         setRemainingDays(editingChange.metadata?.remainingDays ? String(editingChange.metadata.remainingDays) : '');
         setSupplementSubType((editingChange.metadata?.subType as SupplementSubType) ?? 'feature_addition');
         setReprioritizeTarget(editingChange.metadata?.reprioritizeTargetId ?? '');
@@ -90,6 +93,7 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
         setDate(today());
         setNewReqName('');
         setNewReqDays('');
+        setNewReqDependsOn('');
         setRemainingDays('');
         setSupplementSubType('feature_addition');
         setReprioritizeTarget('');
@@ -261,6 +265,9 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
               : type === 'reprioritize' ? {
                 reprioritizeTargetId: reprioritizeTarget,
                 reprioritizeNewDependsOn: reprioritizeNewDep === '__null__' ? null : reprioritizeNewDep,
+              }
+              : type === 'new_requirement' ? {
+                newRequirementDependsOn: newReqDependsOn || null,
               }
               : null;
             return tags.length > 0 ? { ...(base ?? {}), tags } : base;
@@ -523,30 +530,60 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
 
           {/* New requirement fields */}
           {type === 'new_requirement' && (
-            <div className="flex gap-2">
-              <div className="flex-1">
-                <label className="text-xs text-gray-500 mb-1.5 block">需求名称</label>
-                <input
-                  type="text"
-                  value={newReqName}
-                  onChange={(e) => setNewReqName(e.target.value)}
-                  className={`w-full text-sm border rounded px-2 py-1.5 ${errors.newReqName ? 'border-red-300' : 'border-gray-200'}`}
-                  placeholder="新需求名称"
+            <>
+              <div className="flex gap-2">
+                <div className="flex-1">
+                  <label className="text-xs text-gray-500 mb-1.5 block">需求名称</label>
+                  <input
+                    type="text"
+                    value={newReqName}
+                    onChange={(e) => setNewReqName(e.target.value)}
+                    className={`w-full text-sm border rounded px-2 py-1.5 ${errors.newReqName ? 'border-red-300' : 'border-gray-200'}`}
+                    placeholder="新需求名称"
+                    disabled={isEditing}
+                  />
+                </div>
+                <div className="w-24">
+                  <label className="text-xs text-gray-500 mb-1.5 block">天数</label>
+                  <input
+                    type="number"
+                    min={0.5}
+                    step={0.5}
+                    value={newReqDays}
+                    onChange={(e) => setNewReqDays(e.target.value)}
+                    className={`w-full text-sm border rounded px-2 py-1.5 ${errors.newReqDays ? 'border-red-300' : 'border-gray-200'}`}
+                  />
+                </div>
+              </div>
+
+              {/* W-bug-fix: missing dependsOn picker. Without this the new
+                  requirement always inserted in parallel; users had to edit
+                  it post-hoc via the requirement list. */}
+              <div>
+                <label className="text-xs text-gray-500 mb-1.5 block">前置依赖（可选）</label>
+                <select
+                  value={newReqDependsOn}
+                  onChange={(e) => setNewReqDependsOn(e.target.value)}
+                  className="w-full text-sm border border-gray-200 rounded px-2 py-1.5"
                   disabled={isEditing}
-                />
+                  data-testid="change-modal-new-req-depends-on"
+                >
+                  <option value="">无前置 — 与现有需求并行</option>
+                  {requirements
+                    .filter((r) => r.status === 'active' && !r.isAddedByChange)
+                    .map((r) => (
+                      <option key={r.id} value={r.id}>
+                        {r.name} ({r.currentDays} 天)
+                      </option>
+                    ))}
+                </select>
+                {isEditing && (
+                  <p className="text-[11px] text-gray-400 mt-1">
+                    新增需求的前置依赖创建后只能从需求列表里改
+                  </p>
+                )}
               </div>
-              <div className="w-24">
-                <label className="text-xs text-gray-500 mb-1.5 block">天数</label>
-                <input
-                  type="number"
-                  min={0.5}
-                  step={0.5}
-                  value={newReqDays}
-                  onChange={(e) => setNewReqDays(e.target.value)}
-                  className={`w-full text-sm border rounded px-2 py-1.5 ${errors.newReqDays ? 'border-red-300' : 'border-gray-200'}`}
-                />
-              </div>
-            </div>
+            </>
           )}
 
           {/* Pause remaining days */}

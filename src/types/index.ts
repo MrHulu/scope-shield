@@ -79,6 +79,11 @@ export interface ChangeMetadata {
   cancelledRequirementName?: string;
   cancelledDays?: number;
   newRequirementName?: string;
+  /** Requirement id (existing active req) the new requirement should depend
+   * on. null / undefined means no prerequisite (parallel). Set when the
+   * change is recorded; replayed via metadata so dependsOn survives undo /
+   * delete-then-replay flows. */
+  newRequirementDependsOn?: string | null;
   deletedRequirementName?: string;
   subType?: SupplementSubType;
   cascadeTargets?: string[];

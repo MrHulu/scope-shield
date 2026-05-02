@@ -51,6 +51,11 @@ export function processChange(
       const reqDays = input.newRequirementDays ?? daysDelta;
       const maxSort = reqs.reduce((max, r) => Math.max(max, r.sortOrder), -1);
       const reqId = generateId();
+      // Allow the user to specify a prerequisite from existing active reqs.
+      // Validate it exists in the current set; silently null otherwise so a
+      // stale id (e.g. requirement deleted before this change) doesn't break.
+      const requestedDep = metadata?.newRequirementDependsOn ?? null;
+      const dependsOn = requestedDep && reqs.some((r) => r.id === requestedDep) ? requestedDep : null;
 
       newRequirement = {
         id: reqId,
@@ -61,7 +66,7 @@ export function processChange(
         isAddedByChange: true,
         status: 'active',
         sortOrder: maxSort + 1,
-        dependsOn: null,
+        dependsOn,
         pausedRemainingDays: null,
         createdAt: timestamp,
         updatedAt: timestamp,
@@ -70,7 +75,7 @@ export function processChange(
 
       targetRequirementId = reqId;
       daysDelta = reqDays;
-      metadata = { ...metadata, newRequirementName: reqName };
+      metadata = { ...metadata, newRequirementName: reqName, newRequirementDependsOn: dependsOn };
       break;
     }
 
@@ -236,6 +241,11 @@ export function applyChangeForReplay(
     case 'new_requirement': {
       const reqName = change.metadata?.newRequirementName ?? 'New Requirement';
       const reqDays = Math.abs(change.daysDelta) || 0.5;
+      // Restore the prerequisite chosen at record time. Validate against the
+      // current replay state — if the dependency was deleted or hasn't been
+      // created yet at this replay point, fall back to no prerequisite.
+      const requestedDep = change.metadata?.newRequirementDependsOn ?? null;
+      const dependsOn = requestedDep && reqs.some((r) => r.id === requestedDep) ? requestedDep : null;
 
       newRequirement = {
         id: change.targetRequirementId!, // reuse original ID
@@ -246,7 +256,7 @@ export function applyChangeForReplay(
         isAddedByChange: true,
         status: 'active',
         sortOrder: reqs.reduce((max, r) => Math.max(max, r.sortOrder), -1) + 1,
-        dependsOn: null,
+        dependsOn,
         pausedRemainingDays: null,
         createdAt: timestamp,
         updatedAt: timestamp,
