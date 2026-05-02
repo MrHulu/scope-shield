@@ -1,9 +1,10 @@
-import { Archive, RotateCcw, ClipboardCopy } from 'lucide-react';
+import { Archive, RotateCcw, ClipboardCopy, FileDown } from 'lucide-react';
 import type { Change, Project, ProjectStats, Requirement } from '../../types';
 import { StatsCard } from './StatsCard';
 import { useState } from 'react';
 import { ConfirmDialog } from '../shared/ConfirmDialog';
 import { generateMarkdownReport } from '../../services/reportGenerator';
+import { exportToCsv } from '../../services/bulkImporter';
 import { showToast } from '../shared/Toast';
 import { SnapshotHistory } from '../snapshot/SnapshotHistory';
 
@@ -59,6 +60,37 @@ export function ProjectHeader({ project, stats, requirements, changes, criticalP
           {requirements && changes && (
             <>
               <SnapshotHistory projectId={project.id} changes={changes} />
+              <button
+                type="button"
+                onClick={() => {
+                  const idToName = new Map(requirements.map((r) => [r.id, r.name]));
+                  const rows = requirements.map((r) => ({
+                    name: r.name,
+                    days: r.originalDays,
+                    dependsOn: r.dependsOn ? idToName.get(r.dependsOn) ?? '' : undefined,
+                    status: r.status,
+                  }));
+                  const csv = exportToCsv(rows);
+                  const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
+                  const url = URL.createObjectURL(blob);
+                  const link = document.createElement('a');
+                  const safeName = project.name.replace(/[^a-zA-Z0-9一-鿿-]/g, '_');
+                  const date = new Date().toISOString().slice(0, 10);
+                  link.href = url;
+                  link.download = `${safeName}-requirements-${date}.csv`;
+                  document.body.appendChild(link);
+                  link.click();
+                  document.body.removeChild(link);
+                  URL.revokeObjectURL(url);
+                  showToast('CSV 已下载', 'success');
+                }}
+                className="flex items-center gap-1.5 text-sm px-3 py-1.5 text-gray-600 hover:bg-gray-100 rounded-lg"
+                data-testid="export-csv"
+                title="导出当前需求为 CSV（Excel 可读）"
+              >
+                <FileDown size={14} />
+                CSV 导出
+              </button>
               <button
                 onClick={async () => {
                   const md = generateMarkdownReport({

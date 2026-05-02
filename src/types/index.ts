@@ -78,6 +78,9 @@ export interface ChangeMetadata {
   deletedRequirementName?: string;
   subType?: SupplementSubType;
   cascadeTargets?: string[];
+  // W4.4 — change-cause tags for cross-change aggregation. See
+  // src/constants/changeTags.ts for the predefined set.
+  tags?: string[];
 }
 
 export interface Change {

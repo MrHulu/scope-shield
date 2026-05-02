@@ -162,6 +162,44 @@ function parseJson(text: string): ParseResult {
 }
 
 /**
+ * W4.1 — reverse direction: serialize requirements to CSV with UTF-8 BOM
+ * so Excel renders Chinese without re-import gymnastics. Cells with comma
+ * / quote / newline are double-quoted with embedded quotes escaped.
+ *
+ * Caller is expected to translate dependsOn ids → names before passing in,
+ * because the export consumer (Excel / Notion editor) can't follow ids.
+ */
+export interface ExportRow {
+  name: string;
+  days: number;
+  dependsOn: string | undefined;
+  status: string;
+}
+
+const BOM = '﻿';
+
+function csvCell(value: string | number): string {
+  const s = String(value);
+  if (/[,"\n\r]/.test(s)) {
+    return `"${s.replace(/"/g, '""')}"`;
+  }
+  return s;
+}
+
+export function exportToCsv(rows: ExportRow[]): string {
+  const header = ['name', 'days', 'dependsOn', 'status'];
+  const lines = [header.join(',')];
+  for (const r of rows) {
+    lines.push(
+      [r.name, r.days, r.dependsOn ?? '', r.status]
+        .map((v) => csvCell(v as string | number))
+        .join(','),
+    );
+  }
+  return BOM + lines.join('\n');
+}
+
+/**
  * Auto-detect format: if input starts with `[` or `{` after trim, parse
  * as JSON; otherwise CSV/TSV.
  */

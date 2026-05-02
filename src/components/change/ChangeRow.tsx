@@ -4,6 +4,7 @@ import type { Change, Requirement } from '../../types';
 import { CHANGE_TYPE_LABELS, SUPPLEMENT_SUBTYPE_LABELS } from '../../constants/changeTypes';
 import { ROLE_LABELS } from '../../constants/roles';
 import { APP_ROLE_COLORS, APP_COLORS } from '../../constants/colors';
+import { TAG_COLORS, type ChangeTag } from '../../constants/changeTags';
 
 interface ChangeRowProps {
   change: Change;
@@ -11,9 +12,13 @@ interface ChangeRowProps {
   isArchived: boolean;
   onEdit: (id: string) => void;
   onDelete: (id: string) => void;
+  /** When set, render a checkbox at row start; clicking it calls onToggleSelect. */
+  batchMode?: boolean;
+  selected?: boolean;
+  onToggleSelect?: (id: string) => void;
 }
 
-export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelete }: ChangeRowProps) {
+export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelete, batchMode, selected, onToggleSelect }: ChangeRowProps) {
   const [lightboxSrc, setLightboxSrc] = useState<string | null>(null);
   const pics = c.screenshots ?? [];
 
@@ -45,7 +50,17 @@ export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelet
       : null;
 
   return (
-    <div className="group flex items-start gap-3 px-4 py-2.5 rounded-lg hover:bg-gray-50">
+    <div className={`group flex items-start gap-3 px-4 py-2.5 rounded-lg hover:bg-gray-50 ${selected ? 'bg-blue-50/60' : ''}`}>
+      {batchMode && (
+        <input
+          type="checkbox"
+          checked={!!selected}
+          onChange={() => onToggleSelect?.(c.id)}
+          className="mt-1 cursor-pointer"
+          data-testid={`change-row-checkbox-${c.id}`}
+          aria-label={`选择变更：${c.description}`}
+        />
+      )}
       <div className="w-1 h-8 rounded-full mt-0.5 shrink-0" style={{ backgroundColor: color }} />
 
       <div className="flex-1 min-w-0">
@@ -70,6 +85,21 @@ export function ChangeRow({ change: c, requirements, isArchived, onEdit, onDelet
           {ROLE_LABELS[c.role]}
           {c.personName && ` · ${c.personName}`}
         </p>
+        {Array.isArray(c.metadata?.tags) && c.metadata.tags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-1" data-testid={`change-row-tags-${c.id}`}>
+            {(c.metadata.tags as string[]).map((t) => {
+              const tone = TAG_COLORS[t as ChangeTag] ?? 'bg-gray-100 text-gray-600';
+              return (
+                <span
+                  key={t}
+                  className={`text-[10px] px-1.5 py-0.5 rounded-full ${tone}`}
+                >
+                  {t}
+                </span>
+              );
+            })}
+          </div>
+        )}
         {pics.length > 0 && (
           <div className="flex gap-1 mt-1">
             {pics.map((src, i) => (

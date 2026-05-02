@@ -9,6 +9,7 @@ import { validateDays, validateSupplementDays, validatePausedRemainingDays } fro
 import { compressImage, MAX_SCREENSHOTS } from '../../utils/image';
 import { showToast } from '../shared/Toast';
 import { useFocusTrap } from '../../hooks/useFocusTrap';
+import { CHANGE_TAGS, TAG_COLORS } from '../../constants/changeTags';
 
 interface ChangeModalProps {
   open: boolean;
@@ -36,6 +37,7 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
   const [reprioritizeTarget, setReprioritizeTarget] = useState<string>('');
   const [reprioritizeNewDep, setReprioritizeNewDep] = useState<string>('');
   const [screenshots, setScreenshots] = useState<string[]>([]);
+  const [tags, setTags] = useState<string[]>([]); // W4.4
   const [errors, setErrors] = useState<Record<string, string>>({});
   const [saving, setSaving] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -72,6 +74,7 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
               : editingChange.metadata.reprioritizeNewDependsOn,
         );
         setScreenshots(editingChange.screenshots ?? []);
+        setTags((editingChange.metadata?.tags as string[] | undefined) ?? []);
         setStep('details'); // editing — fields populated, skip type selection
       } else {
         // Create mode: reset all. Default to step='details' with type=add_days
@@ -91,6 +94,7 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
         setReprioritizeTarget('');
         setReprioritizeNewDep('');
         setScreenshots([]);
+        setTags([]);
         setStep('details');
       }
       setErrors({});
@@ -220,8 +224,8 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
             ? editingChange!.targetRequirementId  // preserve for new_requirement
             : null;
         if (newTargetId !== editingChange!.targetRequirementId) data.targetRequirementId = newTargetId;
-        // Metadata
-        const newMetadata = type === 'pause' && remainingDays ? { remainingDays: parseFloat(remainingDays) }
+        // Metadata (merge in W4.4 tags when present)
+        const baseMetadata = type === 'pause' && remainingDays ? { remainingDays: parseFloat(remainingDays) }
           : type === 'new_requirement' ? { ...editingChange!.metadata, newRequirementName: newReqName.trim() }
           : type === 'supplement' ? { subType: supplementSubType }
           : type === 'reprioritize' ? {
@@ -229,6 +233,9 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
               reprioritizeNewDependsOn: reprioritizeNewDep === '__null__' ? null : reprioritizeNewDep,
             }
           : null;
+        const newMetadata = tags.length > 0
+          ? { ...(baseMetadata ?? {}), tags }
+          : baseMetadata;
         if (JSON.stringify(newMetadata) !== JSON.stringify(editingChange!.metadata)) data.metadata = newMetadata;
         const oldScreenshots = editingChange!.screenshots ?? [];
         if (JSON.stringify(screenshots) !== JSON.stringify(oldScreenshots)) data.screenshots = screenshots;
@@ -247,13 +254,16 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
             : type === 'supplement' ? (daysDelta ? parseFloat(daysDelta) : 0)
             : 0,
           date,
-          metadata: type === 'pause' && remainingDays ? { remainingDays: parseFloat(remainingDays) }
-            : type === 'supplement' ? { subType: supplementSubType }
-            : type === 'reprioritize' ? {
-              reprioritizeTargetId: reprioritizeTarget,
-              reprioritizeNewDependsOn: reprioritizeNewDep === '__null__' ? null : reprioritizeNewDep,
-            }
-            : null,
+          metadata: (() => {
+            const base = type === 'pause' && remainingDays ? { remainingDays: parseFloat(remainingDays) }
+              : type === 'supplement' ? { subType: supplementSubType }
+              : type === 'reprioritize' ? {
+                reprioritizeTargetId: reprioritizeTarget,
+                reprioritizeNewDependsOn: reprioritizeNewDep === '__null__' ? null : reprioritizeNewDep,
+              }
+              : null;
+            return tags.length > 0 ? { ...(base ?? {}), tags } : base;
+          })(),
           screenshots,
           newRequirementName: type === 'new_requirement' ? newReqName.trim() : undefined,
           newRequirementDays: type === 'new_requirement' ? parseFloat(newReqDays) : undefined,
@@ -593,6 +603,33 @@ export function ChangeModal({ open, projectId, requirements, editingChange, onSa
               placeholder="一句话描述变更原因"
               className={`w-full text-sm border rounded px-2 py-1.5 ${errors.description ? 'border-red-300' : 'border-gray-200'}`}
             />
+          </div>
+
+          {/* W4.4 — change-cause tags. Multi-select chip row. */}
+          <div>
+            <label className="text-xs text-gray-500 mb-1.5 block">原因标签（可选 · 多选）</label>
+            <div className="flex flex-wrap gap-1.5" data-testid="change-tag-picker">
+              {CHANGE_TAGS.map((t) => {
+                const active = tags.includes(t);
+                return (
+                  <button
+                    key={t}
+                    type="button"
+                    onClick={() =>
+                      setTags((prev) => (prev.includes(t) ? prev.filter((x) => x !== t) : [...prev, t]))
+                    }
+                    className={`text-[11px] px-2 py-0.5 rounded-full border ${
+                      active
+                        ? `${TAG_COLORS[t]} border-transparent`
+                        : 'border-gray-200 text-gray-500 hover:bg-gray-50'
+                    }`}
+                    data-testid={`change-tag-${t}`}
+                  >
+                    {t}
+                  </button>
+                );
+              })}
+            </div>
           </div>
 
           {/* Screenshots */}

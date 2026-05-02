@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest';
-import { parseBulkImport } from '../bulkImporter';
+import { parseBulkImport, exportToCsv } from '../bulkImporter';
 
 describe('parseBulkImport (W3.3)', () => {
   it('parses CSV with explicit header', () => {
@@ -85,5 +85,49 @@ describe('parseBulkImport (W3.3)', () => {
 列表,5,登录`);
     expect(out.errors).toEqual([]);
     expect(out.drafts[1].dependsOn).toBe('登录');
+  });
+});
+
+describe('exportToCsv (W4.1)', () => {
+  it('emits header + rows with UTF-8 BOM', () => {
+    const csv = exportToCsv([
+      { name: '登录', days: 3, dependsOn: undefined, status: 'active' },
+      { name: '列表', days: 5, dependsOn: '登录', status: 'active' },
+    ]);
+    // Starts with BOM character (﻿)
+    expect(csv.charCodeAt(0)).toBe(0xfeff);
+    // Header row
+    expect(csv).toContain('name,days,dependsOn,status');
+    // Data rows
+    expect(csv).toContain('登录,3,,active');
+    expect(csv).toContain('列表,5,登录,active');
+  });
+
+  it('quotes cells containing commas', () => {
+    const csv = exportToCsv([
+      { name: '登录, OAuth', days: 3, dependsOn: undefined, status: 'active' },
+    ]);
+    expect(csv).toContain('"登录, OAuth"');
+  });
+
+  it('escapes embedded double-quotes', () => {
+    const csv = exportToCsv([
+      { name: 'click "go"', days: 2, dependsOn: undefined, status: 'active' },
+    ]);
+    expect(csv).toContain('"click ""go"""');
+  });
+
+  it('exportToCsv → parseBulkImport round-trips data', () => {
+    const csv = exportToCsv([
+      { name: '登录', days: 3, dependsOn: undefined, status: 'active' },
+      { name: '列表', days: 5, dependsOn: '登录', status: 'active' },
+    ]);
+    // Drop BOM for parser
+    const parsed = parseBulkImport(csv.replace(/^﻿/, ''));
+    expect(parsed.errors).toEqual([]);
+    expect(parsed.drafts).toEqual([
+      { name: '登录', days: 3, dependsOn: undefined },
+      { name: '列表', days: 5, dependsOn: '登录' },
+    ]);
   });
 });
