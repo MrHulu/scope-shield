@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { Play, Pause, X, ChevronsLeft } from 'lucide-react';
 import * as snapshotRepo from '../../db/snapshotRepo';
 import type { Change, Requirement, Snapshot } from '../../types';
@@ -135,71 +136,80 @@ export function ReplayPlayer({ open, projectId, requirements, changes, onClose }
   const maxFrame = snapshots.length;
   const noData = snapshots.length === 0;
 
-  return (
+  // Full-viewport overlay portaled to <body> — true fullscreen feel, the
+  // chart fills almost the entire screen instead of being squeezed into a
+  // dialog at the same width as the regular ProjectPage chart panel.
+  return createPortal(
     <div
-      className="fixed inset-0 flex items-center justify-center bg-black/50"
+      className="fixed inset-0 app-backdrop overflow-auto"
       style={{ zIndex: 'var(--z-modal)' }}
-      onClick={onClose}
       role="dialog"
       aria-modal="true"
       aria-label="变更回放"
       data-testid="replay-player"
     >
-      <div
-        ref={trapRef}
-        className="glass-panel-strong rounded-2xl w-full max-w-4xl mx-4 max-h-[90vh] overflow-hidden flex flex-col"
-        onClick={(e) => e.stopPropagation()}
-      >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-200/60">
-          <div>
-            <h3 className="text-base font-semibold text-gray-900">变更回放</h3>
-            <p className="text-[11px] text-gray-500 mt-0.5">
+      <div ref={trapRef} className="min-h-screen flex flex-col">
+        {/* Header — title + frame info + close */}
+        <div className="flex items-center justify-between gap-4 px-8 py-4 border-b border-gray-200/40 bg-white/40 backdrop-blur-md flex-wrap">
+          <div className="min-w-0">
+            <h3 className="text-lg font-semibold text-gray-900">变更回放</h3>
+            <p className="text-xs text-gray-500 mt-0.5">
               空格键播放/暂停 · Esc 退出
             </p>
           </div>
-          <button onClick={onClose} aria-label="关闭" className="p-1 hover:bg-gray-100 rounded">
-            <X size={18} />
+          {!noData && (
+            <div className="text-sm text-gray-700 flex items-center gap-3 min-w-0" data-testid="replay-frame-label">
+              <span className="font-semibold tabular-nums text-base">
+                帧 {frame} / {maxFrame}
+              </span>
+              <span className="text-gray-400">·</span>
+              {frame === 0 ? (
+                <span className="text-gray-500">原计划 · {view.schedule.totalDays} 天</span>
+              ) : (
+                <span className="text-gray-700 truncate">
+                  当前 {view.schedule.totalDays} 天
+                  {view.triggerChange && (
+                    <>
+                      <span className="text-gray-400 mx-2">·</span>
+                      <span className="text-gray-500">
+                        {CHANGE_TYPE_LABELS[view.triggerChange.type]} · {view.triggerChange.description}
+                      </span>
+                    </>
+                  )}
+                </span>
+              )}
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            aria-label="关闭"
+            className="p-2 hover:bg-gray-100 rounded-lg text-gray-600"
+          >
+            <X size={20} />
           </button>
         </div>
 
-        <div className="flex-1 overflow-auto px-6 py-4">
+        {/* Stage — chart fills all available height. */}
+        <div className="flex-1 flex items-center justify-center px-8 py-6">
           {noData ? (
-            <p className="text-sm text-gray-400 text-center py-12">
+            <p className="text-base text-gray-400 text-center">
               暂无快照 — 记录变更后会自动累积。当前项目还没有任何变更。
             </p>
           ) : (
-            <>
-              <div className="mb-3 text-sm text-gray-700 flex items-center gap-3" data-testid="replay-frame-label">
-                <span className="font-medium tabular-nums">
-                  帧 {frame} / {maxFrame}
-                </span>
-                {frame === 0 ? (
-                  <span className="text-gray-500">原计划 · {view.schedule.totalDays} 天</span>
-                ) : (
-                  <span className="text-gray-700">
-                    当前 {view.schedule.totalDays} 天
-                    {view.triggerChange && (
-                      <>
-                        <span className="text-gray-400 mx-2">·</span>
-                        <span className="text-gray-500">
-                          {CHANGE_TYPE_LABELS[view.triggerChange.type]} · {view.triggerChange.description}
-                        </span>
-                      </>
-                    )}
-                  </span>
-                )}
-              </div>
+            <div className="w-full max-w-7xl mx-auto">
               <SimpleChart
                 requirements={view.requirements}
                 changes={view.changes}
                 schedule={view.schedule}
               />
-            </>
+            </div>
           )}
         </div>
 
+        {/* Controls — sticky at bottom of viewport. */}
         {!noData && (
-          <div className="border-t border-gray-200/60 px-6 py-3 flex items-center gap-3">
+          <div className="border-t border-gray-200/40 bg-white/50 backdrop-blur-md px-8 py-4 flex items-center gap-4 sticky bottom-0">
             <button
               type="button"
               onClick={() => {
@@ -210,16 +220,16 @@ export function ReplayPlayer({ open, projectId, requirements, changes, onClose }
               aria-label="回到开始"
               data-testid="replay-restart"
             >
-              <ChevronsLeft size={14} />
+              <ChevronsLeft size={18} />
             </button>
             <button
               type="button"
               onClick={() => setPlaying((p) => !p)}
-              className="p-2 hover:bg-gray-100 rounded-lg text-gray-700"
+              className="p-2.5 hover:bg-gray-100 rounded-full text-gray-700 bg-gray-100/60"
               aria-label={playing ? '暂停' : '播放'}
               data-testid="replay-toggle"
             >
-              {playing ? <Pause size={16} /> : <Play size={16} />}
+              {playing ? <Pause size={20} /> : <Play size={20} />}
             </button>
             <input
               type="range"
@@ -234,12 +244,13 @@ export function ReplayPlayer({ open, projectId, requirements, changes, onClose }
               data-testid="replay-slider"
               aria-label="时间轴"
             />
-            <span className="text-[11px] text-gray-500 tabular-nums shrink-0 w-16 text-right">
+            <span className="text-xs text-gray-500 tabular-nums shrink-0 w-20 text-right">
               {frame}/{maxFrame}
             </span>
           </div>
         )}
       </div>
-    </div>
+    </div>,
+    document.body,
   );
 }

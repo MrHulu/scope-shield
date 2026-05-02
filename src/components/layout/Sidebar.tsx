@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Plus, FolderOpen, Archive, Shield, Copy, BarChart3 } from 'lucide-react';
+import { Plus, FolderOpen, Archive, Shield, Copy, BarChart3, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
+import { useUIStore } from '../../stores/uiStore';
 import type { Project } from '../../types';
 import { LocalStorageBadge } from './LocalStorageBadge';
 import { ThemeToggle } from './ThemeToggle';
@@ -22,6 +23,8 @@ export function Sidebar({ projects, currentProjectId, onCreateProject, onDuplica
   const [startDate, setStartDate] = useState(new Date().toISOString().slice(0, 10));
   const [templateId, setTemplateId] = useState<string>(''); // '' = blank project
   const createFromTemplate = useProjectStore((s) => s.createFromTemplate);
+  const collapsed = useUIStore((s) => s.sidebarCollapsed);
+  const setCollapsed = useUIStore((s) => s.setSidebarCollapsed);
 
   const active = projects.filter((p) => p.status === 'active');
   const archived = projects.filter((p) => p.status === 'archived');
@@ -68,12 +71,72 @@ export function Sidebar({ projects, currentProjectId, onCreateProject, onDuplica
     navigate(`/project/${project.id}`);
   };
 
+  // Collapsed rail: icon-only, ~64px wide. Click any project icon to navigate;
+  // re-expand via the toggle in the header.
+  if (collapsed) {
+    return (
+      <aside className="w-16 glass-panel-tinted flex flex-col h-full" data-testid="sidebar-collapsed">
+        <div className="p-3 border-b border-gray-200/60 flex items-center justify-center">
+          <button
+            type="button"
+            onClick={() => setCollapsed(false)}
+            className="p-1.5 hover:bg-gray-200/60 rounded text-gray-600"
+            aria-label="展开侧边栏"
+            title="展开"
+            data-testid="sidebar-expand"
+          >
+            <PanelLeftOpen size={16} />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto py-2 flex flex-col items-center gap-1">
+          {active.map((p) => (
+            <button
+              key={p.id}
+              onClick={() => navigate(`/project/${p.id}`)}
+              className={`relative w-10 h-10 flex items-center justify-center rounded-lg ${
+                p.id === currentProjectId
+                  ? 'bg-blue-100 text-blue-700'
+                  : 'text-gray-600 hover:bg-gray-100'
+              }`}
+              title={p.name}
+            >
+              <FolderOpen size={16} />
+              {isOverdue(p) && (
+                <span className="absolute top-1 right-1 w-1.5 h-1.5 rounded-full bg-red-500" />
+              )}
+            </button>
+          ))}
+        </div>
+        <div className="p-2 border-t border-gray-200/60 flex flex-col items-center gap-1">
+          <button
+            onClick={() => navigate('/analytics')}
+            className="w-10 h-10 flex items-center justify-center rounded-lg text-gray-600 hover:bg-gray-100"
+            title="数据看板"
+            data-testid="nav-analytics-rail"
+          >
+            <BarChart3 size={16} />
+          </button>
+        </div>
+      </aside>
+    );
+  }
+
   return (
     <aside className="w-64 glass-panel-tinted flex flex-col h-full">
       {/* Header */}
       <div className="p-4 border-b border-gray-200 flex items-center gap-2">
         <Shield size={20} className="text-blue-600" />
-        <span className="font-semibold text-gray-900 text-sm">Scope Shield</span>
+        <span className="font-semibold text-gray-900 text-sm flex-1">Scope Shield</span>
+        <button
+          type="button"
+          onClick={() => setCollapsed(true)}
+          className="hidden md:inline-flex p-1 hover:bg-gray-200/60 rounded text-gray-500"
+          aria-label="收起侧边栏"
+          title="收起"
+          data-testid="sidebar-collapse"
+        >
+          <PanelLeftClose size={14} />
+        </button>
       </div>
 
       {/* Projects */}
