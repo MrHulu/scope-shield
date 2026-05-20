@@ -40,6 +40,7 @@ function buildBaseline(requirements: Requirement[]): {
       inflationRate: 0,
       totalChanges: 0,
       supplementCount: 0,
+      endDate: '',
     },
   };
 }

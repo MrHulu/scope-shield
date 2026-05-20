@@ -8,7 +8,12 @@
     "build": "tsc -b && vite build",
     "lint": "eslint .",
     "preview": "vite preview",
-    "test": "vitest run",
+    "serve:local": "node scripts/serve-dist.mjs --root dist --host 0.0.0.0 --port 4173 --open",
+    "deploy:local": "node scripts/deploy-local.mjs --host 0.0.0.0 --port 4173 --open",
+    "deploy:lan": "node scripts/deploy-local.mjs --host 0.0.0.0 --port 4173 --open",
+    "package:local": "node scripts/package-local.mjs",
+    "test": "vitest run && node --test scripts/local-deploy-utils.test.mjs",
+    "test:scripts": "node --test scripts/local-deploy-utils.test.mjs",
     "test:watch": "vitest",
     "test:e2e": "playwright test",
     "feishu:login": "node scripts/feishu-login.mjs"

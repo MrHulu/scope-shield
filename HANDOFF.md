@@ -142,6 +142,12 @@ src/
 | `src/db/__tests__/changeNotifier.test.ts` | 缺 | 订阅/取消/批量通知 |
 
 ### P1 — 部署
+本地一键部署已补齐（2026-05-20）：
+- 源仓库：双击 `deploy-local.cmd` 或执行 `npm run deploy:local`
+- 局域网：生产构建后绑定 `0.0.0.0:4173`，终端打印 localhost + LAN URL
+- 分发包：`npm run package:local` 生成 `.output/local-deploy/scope-shield-local-<timestamp>.zip`，对方解压后双击 `start-local.cmd`
+- 静态服务：`scripts/serve-dist.mjs`，零外部依赖，支持 SPA fallback / 端口占用自动顺延 / 路径穿越防护
+
 公开仓没绑定 Pages / Vercel。可选（看 Boss 是否要发布）：
 - GitHub Pages（vite build → gh-pages 分支 / Actions）
 - Vercel（连 GitHub repo 自动部署）
@@ -166,6 +172,8 @@ npm test                 # vitest run
 npm run test:watch
 npm run test:e2e         # playwright test
 npm run preview          # 预览生产构建
+npm run deploy:local     # 生产构建 + 本地/LAN 静态服务
+npm run package:local    # 生成可分发本地部署 zip
 ```
 
 飞书代理生效条件（开发期）：

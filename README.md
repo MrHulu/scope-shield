@@ -14,7 +14,7 @@
 [![React](https://img.shields.io/badge/React-19-61dafb?style=for-the-badge&logo=react)](https://react.dev)
 [![Vite](https://img.shields.io/badge/Vite-8-646cff?style=for-the-badge&logo=vite)](https://vitejs.dev)
 
-[**English**](#english) · [**功能**](#-核心能力) · [**快速开始**](#-30-秒开跑) · [**路线图**](#%EF%B8%8F-roadmap)
+[**English**](#english) · [**功能**](#-核心能力) · [**快速开始**](#-30-秒开跑) · [**本地部署**](#local-deploy) · [**路线图**](#%EF%B8%8F-roadmap)
 
 </div>
 
@@ -76,6 +76,55 @@ cd scope-shield && npm install && npm run dev
 零依赖部署：浏览器 SPA，不需要数据库、不需要后端、不需要登录。打开就用。
 
 > 想用飞书 URL 一键同步？装 [credential-center](https://github.com/MrHulu/credential-center) 或自建 `~/.credential-center/feishu_project_state.json`（含 `cookies` + `meego_csrf_token`）。仅 dev 期生效，生产构建无代理时自动降级 URL-only。
+
+---
+
+<a id="local-deploy"></a>
+
+## 🖥️ 本地一键部署 / 局域网访问
+
+### 当前机器一键部署
+
+Windows 双击：
+
+```text
+deploy-local.cmd
+```
+
+或命令行：
+
+```bash
+npm run deploy:local
+```
+
+它会自动执行生产构建，然后用内置零依赖静态服务器启动 `dist/`，默认绑定 `0.0.0.0:4173`。终端会打印：
+
+- `Local: http://localhost:4173/`
+- `LAN: http://你的局域网 IP:4173/`
+
+同一 Wi-Fi / 局域网内的设备打开 `LAN` 地址即可访问。Windows 防火墙如弹出 Node.js 放行提示，允许专用网络即可。
+
+可选参数：
+
+```bash
+npm run deploy:local -- --port 8080
+npm run deploy:local -- --host 127.0.0.1 --no-open
+npm run serve:local   # 只服务已有 dist，不重新 build
+```
+
+### 打包给别人一键部署
+
+```bash
+npm run package:local
+```
+
+产物在：
+
+```text
+.output/local-deploy/scope-shield-local-<timestamp>.zip
+```
+
+对方解压后双击 `start-local.cmd` 即可本地启动，包内只包含 `dist/`、静态服务器和启动脚本，不包含源码与依赖。接收方机器需要安装 Node.js 20+。
 
 ---
 

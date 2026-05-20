@@ -2,7 +2,7 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { X, ImagePlus } from 'lucide-react';
 import type { Change, ChangeType, Role, Requirement, CreateChangeInput, SupplementSubType } from '../../types';
-import { CHANGE_TYPE_LABELS, CHANGE_TYPES, SUPPLEMENT_SUBTYPE_LABELS } from '../../constants/changeTypes';
+import { CHANGE_TYPE_LABELS, SUPPLEMENT_SUBTYPE_LABELS } from '../../constants/changeTypes';
 import { ROLE_LABELS, ROLES } from '../../constants/roles';
 import { PersonNameInput } from './PersonNameInput';
 import { today } from '../../utils/date';

@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, type ReactElement } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { Plus, FolderOpen, Archive, Shield, Copy, BarChart3, PanelLeftClose, PanelLeftOpen } from 'lucide-react';
 import { useUIStore } from '../../stores/uiStore';
@@ -35,7 +35,7 @@ export function Sidebar({ projects, currentProjectId, onCreateProject, onDuplica
   const today = new Date().toISOString().slice(0, 10);
   const isOverdue = (p: Project) => !!p.targetEndDate && today > p.targetEndDate;
 
-  function inflationChip(projectId: string): JSX.Element | null {
+  function inflationChip(projectId: string): ReactElement | null {
     const s = projectStats.get(projectId);
     if (!s || s.inflationRate === null) return null;
     const tone =

@@ -464,6 +464,7 @@ export function extractCurrentNodeOwnersByRole(
   const names: string[] = [];
   for (const entry of roleOwners) {
     const rec = asRecord(entry);
+    if (!rec) continue;
     const role = typeof rec?.role === 'string' ? rec.role : undefined;
     if (!role || !roleKeys.includes(role)) continue;
     names.push(...extractNames(rec.owners));
