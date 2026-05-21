@@ -5,11 +5,68 @@ import tailwindcss from '@tailwindcss/vite'
 import fs from 'node:fs'
 import path from 'node:path'
 import os from 'node:os'
-import { spawn } from 'node:child_process'
+import { spawn, type ChildProcess } from 'node:child_process'
 import { fileURLToPath } from 'node:url'
 import zlib from 'node:zlib'
 
 const here = path.dirname(fileURLToPath(import.meta.url))
+let activeFeishuLogin: ChildProcess | null = null
+let lastFeishuLogin: {
+  exitCode: number | null
+  signal: NodeJS.Signals | null
+  error: string | null
+  finishedAt: string
+} | null = null
+
+function feishuLoginStatus() {
+  return {
+    running: Boolean(activeFeishuLogin),
+    lastExitCode: lastFeishuLogin?.exitCode ?? null,
+    lastSignal: lastFeishuLogin?.signal ?? null,
+    lastError: lastFeishuLogin?.error ?? null,
+    lastFinishedAt: lastFeishuLogin?.finishedAt ?? null,
+  }
+}
+
+function startFeishuLoginProcess(scriptPath: string) {
+  if (activeFeishuLogin) {
+    return { ok: true, started: false, alreadyRunning: true, status: feishuLoginStatus() }
+  }
+
+  const proc = spawn(process.execPath, [scriptPath], {
+    cwd: here,
+    env: { ...process.env, FORCE_COLOR: '0' },
+    stdio: ['ignore', 'pipe', 'pipe'],
+  })
+  let stdout = ''
+  let stderr = ''
+  activeFeishuLogin = proc
+  lastFeishuLogin = null
+
+  proc.stdout?.on('data', (d) => { stdout += d.toString() })
+  proc.stderr?.on('data', (d) => { stderr += d.toString() })
+  proc.on('error', (err) => {
+    if (activeFeishuLogin === proc) activeFeishuLogin = null
+    lastFeishuLogin = {
+      exitCode: null,
+      signal: null,
+      error: err.message,
+      finishedAt: new Date().toISOString(),
+    }
+  })
+  proc.on('close', (code, signal) => {
+    if (activeFeishuLogin === proc) activeFeishuLogin = null
+    const output = (stderr || stdout || '').trim()
+    lastFeishuLogin = {
+      exitCode: code,
+      signal,
+      error: code === 0 ? null : output || (signal ? `killed by ${signal}` : `exit ${code}`),
+      finishedAt: new Date().toISOString(),
+    }
+  })
+
+  return { ok: true, started: true, alreadyRunning: false, status: feishuLoginStatus() }
+}
 
 /**
  * Dev-only endpoint that spawns the feishu-login Playwright script.
@@ -21,6 +78,20 @@ function feishuLoginPlugin(): Plugin {
   return {
     name: 'scope-shield:feishu-login',
     configureServer(server) {
+      server.middlewares.use('/__feishu/status', (req, res) => {
+        if (req.method !== 'GET') {
+          res.statusCode = 405
+          res.end('Method Not Allowed')
+          return
+        }
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify({
+          ok: true,
+          enabled: true,
+          loggedIn: Boolean(loadFeishuCookies()),
+          login: feishuLoginStatus(),
+        }))
+      })
       server.middlewares.use('/__feishu/login', (req, res) => {
         if (req.method !== 'POST') {
           res.statusCode = 405
@@ -28,38 +99,10 @@ function feishuLoginPlugin(): Plugin {
           return
         }
         const scriptPath = path.join(here, 'scripts', 'feishu-login.mjs')
-        const proc = spawn(process.execPath, [scriptPath], {
-          cwd: here,
-          env: { ...process.env, FORCE_COLOR: '0' },
-          stdio: ['ignore', 'pipe', 'pipe'],
-        })
-        let stdout = ''
-        let stderr = ''
-        proc.stdout?.on('data', (d) => { stdout += d.toString() })
-        proc.stderr?.on('data', (d) => { stderr += d.toString() })
-        proc.on('error', (err) => {
-          res.statusCode = 500
-          res.setHeader('Content-Type', 'application/json')
-          res.end(JSON.stringify({ ok: false, error: err.message }))
-        })
-        proc.on('close', (code) => {
-          res.setHeader('Content-Type', 'application/json')
-          if (code === 0) {
-            res.end(JSON.stringify({ ok: true, log: stdout.trim() }))
-          } else {
-            res.statusCode = 500
-            res.end(
-              JSON.stringify({
-                ok: false,
-                error: (stderr || stdout || `exit ${code}`).trim(),
-              }),
-            )
-          }
-        })
-        // Abort the spawned chromium if the browser navigates away
-        req.on('close', () => {
-          if (proc.exitCode === null) proc.kill('SIGTERM')
-        })
+        const result = startFeishuLoginProcess(scriptPath)
+        res.statusCode = 202
+        res.setHeader('Content-Type', 'application/json')
+        res.end(JSON.stringify(result))
       })
     },
   }

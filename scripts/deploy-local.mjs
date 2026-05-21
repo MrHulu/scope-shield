@@ -9,15 +9,15 @@ const repoRoot = path.resolve(here, '..')
 
 function help() {
   return `
-Build and run Scope Shield locally, with LAN access enabled.
+Build and run Scope Shield privately on this computer, with Feishu enabled.
 
 Usage:
-  npm run deploy:local -- [--host 0.0.0.0] [--port 4173] [--no-open] [--skip-build]
+  npm run deploy:local -- [--host 127.0.0.1] [--port 4173] [--no-open] [--skip-build] [--strict-port] [--shutdown-on-idle]
 
 Examples:
   npm run deploy:local
   npm run deploy:local -- --port 8080
-  npm run deploy:local -- --host 127.0.0.1 --no-open
+  npm run deploy:local -- --no-open
 `.trim()
 }
 
@@ -33,7 +33,10 @@ function runChecked(command, args) {
 }
 
 function main() {
-  const options = parseLocalDeployArgs(process.argv.slice(2))
+  const options = parseLocalDeployArgs(process.argv.slice(2), {
+    host: '127.0.0.1',
+    feishu: true,
+  })
   if (options.help) {
     console.log(help())
     return
@@ -53,7 +56,12 @@ function main() {
     '--port',
     String(options.port),
   ]
+  if (options.feishu) args.push('--feishu')
   if (!options.open) args.push('--no-open')
+  if (options.strictPort) args.push('--strict-port')
+  if (options.shutdownOnIdle) args.push('--shutdown-on-idle')
+  if (options.idleTimeoutMs !== 20_000) args.push('--idle-timeout-ms', String(options.idleTimeoutMs))
+  if (options.autoFeishuLogin) args.push('--auto-feishu-login')
 
   const child = spawn(process.execPath, args, {
     cwd: repoRoot,

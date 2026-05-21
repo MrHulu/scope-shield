@@ -12,22 +12,101 @@
  * 用法：
  *   npm run feishu:login
  */
-import { chromium } from '@playwright/test';
 import fs from 'node:fs';
 import path from 'node:path';
 import os from 'node:os';
 
 const TARGET = 'https://project.feishu.cn/';
+const FALLBACK_TARGET = 'https://accounts.feishu.cn/passport/web/login';
 const OUT = path.join(os.homedir(), '.credential-center', 'feishu_project_state.json');
 const REQUIRED_COOKIE = 'meego_csrf_token';
 const TIMEOUT_MS = 5 * 60 * 1000;
 const POLL_MS = 500;
+let browser;
+let shuttingDown = false;
 
 function banner(line) {
   process.stdout.write(`\n${line}\n`);
 }
 
+async function closeBrowser() {
+  if (!browser) return;
+  const activeBrowser = browser;
+  browser = undefined;
+  await activeBrowser.close().catch(() => {});
+}
+
+async function shutdownFromSignal(signal) {
+  if (shuttingDown) return;
+  shuttingDown = true;
+  await closeBrowser();
+  process.exit(signal === 'SIGINT' ? 130 : 143);
+}
+
+process.once('SIGINT', () => { void shutdownFromSignal('SIGINT'); });
+process.once('SIGTERM', () => { void shutdownFromSignal('SIGTERM'); });
+
+async function launchLoginBrowser(chromium) {
+  const attempts = [
+    ['Playwright Chromium', { headless: false, args: ['--start-maximized'] }],
+    ['Google Chrome', { headless: false, channel: 'chrome', args: ['--start-maximized'] }],
+    ['Microsoft Edge', { headless: false, channel: 'msedge', args: ['--start-maximized'] }],
+  ];
+  const errors = [];
+  for (const [name, options] of attempts) {
+    try {
+      console.log(`启动浏览器: ${name}`);
+      return await chromium.launch(options);
+    } catch (error) {
+      const message = error instanceof Error ? error.message.split('\n')[0] : String(error);
+      errors.push(`${name}: ${message}`);
+    }
+  }
+
+  throw new Error([
+    '无法启动登录浏览器。',
+    '请确认本机安装了 Chrome 或 Microsoft Edge；如果都没有，请联网运行 node scripts/ensure-feishu-runtime.mjs 后再试。',
+    ...errors.map((line) => `- ${line}`),
+  ].join('\n'));
+}
+
+async function openFeishuLoginPage(page) {
+  const targets = [TARGET, FALLBACK_TARGET];
+  const errors = [];
+  for (const target of targets) {
+    try {
+      await page.goto(target, { waitUntil: 'domcontentloaded', timeout: 45_000 });
+      await page.bringToFront().catch(() => {});
+      const url = page.url();
+      if (url && url !== 'about:blank') {
+        console.log(`已打开飞书登录页: ${url}`);
+        return;
+      }
+      errors.push(`${target}: 页面仍为空白`);
+    } catch (error) {
+      const message = error instanceof Error ? error.message.split('\n')[0] : String(error);
+      errors.push(`${target}: ${message}`);
+    }
+  }
+
+  throw new Error([
+    '浏览器已启动，但飞书登录页没有打开。',
+    '请检查这台电脑是否能访问 https://project.feishu.cn/，然后重试。',
+    ...errors.map((line) => `- ${line}`),
+  ].join('\n'));
+}
+
 async function main() {
+  let chromium;
+  try {
+    ({ chromium } = await import('@playwright/test'));
+  } catch {
+    console.error('缺少 @playwright/test，无法打开飞书登录窗口。');
+    console.error('源码仓库请先运行: npm install');
+    console.error('本地部署包应自带该依赖；请确认使用最新 zip 并完整解压。');
+    process.exit(1);
+  }
+
   banner('🛡️  Scope Shield · Feishu Project 登录');
   console.log('═════════════════════════════════════════');
   console.log(`目标 : ${TARGET}`);
@@ -36,17 +115,10 @@ async function main() {
   console.log('       登录成功后脚本会自动保存凭证并关闭浏览器');
   console.log('═════════════════════════════════════════\n');
 
-  const browser = await chromium.launch({
-    headless: false,
-    args: ['--start-maximized'],
-  });
+  browser = await launchLoginBrowser(chromium);
   const context = await browser.newContext({ viewport: null });
   const page = await context.newPage();
-  // 飞书登录页第三方广告资源极多 — 别 await，让它后台加载即可
-  // DOM 一出来用户就能扫码；cookie 轮询跟 goto 并行，goto 失败也不影响
-  page.goto(TARGET, { waitUntil: 'domcontentloaded', timeout: TIMEOUT_MS }).catch((err) => {
-    console.log(`⚠️  页面加载异常（${err && err.message ? err.message.split('\n')[0] : err}），继续等待登录...`);
-  });
+  await openFeishuLoginPage(page);
 
   console.log(`⏳ 浏览器已打开，等待扫码登录（最长 ${TIMEOUT_MS / 60_000} 分钟）...`);
 
@@ -97,7 +169,7 @@ async function main() {
 
   if (!logged) {
     console.error(`\n❌ ${TIMEOUT_MS / 60_000} 分钟内未检测到登录状态`);
-    await browser.close();
+    await closeBrowser();
     process.exit(1);
   }
 
@@ -116,10 +188,11 @@ async function main() {
   console.log('\n🎉 完成！');
   console.log('   现在可以回到 Settings 页点「重新检测」（无需重启 dev server）。\n');
 
-  await browser.close();
+  await closeBrowser();
 }
 
-main().catch((err) => {
+main().catch(async (err) => {
   console.error('\n❌ 登录失败:', err.message);
+  await closeBrowser();
   process.exit(1);
 });

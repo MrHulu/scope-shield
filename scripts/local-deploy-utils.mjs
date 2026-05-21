@@ -29,6 +29,11 @@ export function parseLocalDeployArgs(argv, defaults = {}) {
     open: true,
     skipBuild: false,
     noZip: false,
+    feishu: false,
+    strictPort: false,
+    shutdownOnIdle: false,
+    idleTimeoutMs: 20_000,
+    autoFeishuLogin: false,
     help: false,
     ...defaults,
   }
@@ -62,6 +67,18 @@ export function parseLocalDeployArgs(argv, defaults = {}) {
       options.skipBuild = true
     } else if (token === '--no-zip') {
       options.noZip = true
+    } else if (token === '--feishu') {
+      options.feishu = true
+    } else if (token === '--no-feishu') {
+      options.feishu = false
+    } else if (token === '--strict-port') {
+      options.strictPort = true
+    } else if (token === '--shutdown-on-idle') {
+      options.shutdownOnIdle = true
+    } else if (name === '--idle-timeout-ms') {
+      options.idleTimeoutMs = parsePositiveInteger(readValue(), '--idle-timeout-ms')
+    } else if (token === '--auto-feishu-login') {
+      options.autoFeishuLogin = true
     } else {
       throw new Error(`Unknown option: ${token}`)
     }
@@ -76,6 +93,14 @@ export function parsePort(value) {
     throw new Error(`Invalid port: ${value}`)
   }
   return port
+}
+
+function parsePositiveInteger(value, label) {
+  const parsed = Number(value)
+  if (!Number.isInteger(parsed) || parsed < 1) {
+    throw new Error(`Invalid ${label}: ${value}`)
+  }
+  return parsed
 }
 
 export function getLanAddresses(interfaces = os.networkInterfaces()) {
@@ -110,6 +135,10 @@ export function getOpenUrl({ host, port }) {
     return `http://localhost:${port}/`
   }
   return `http://${host}:${port}/`
+}
+
+export function isLoopbackHost(host) {
+  return ['localhost', '127.0.0.1', '::1'].includes(host)
 }
 
 export function getContentType(filePath) {

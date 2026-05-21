@@ -143,9 +143,10 @@ src/
 
 ### P1 — 部署
 本地一键部署已补齐（2026-05-20）：
-- 源仓库：双击 `deploy-local.cmd` 或执行 `npm run deploy:local`
-- 局域网：生产构建后绑定 `0.0.0.0:4173`，终端打印 localhost + LAN URL
-- 分发包：`npm run package:local` 生成 `.output/local-deploy/scope-shield-local-<timestamp>.zip`，对方解压后双击 `start-local.cmd`
+- 源仓库本机私有模式：双击 `deploy-local.cmd` 或执行 `npm run deploy:local`，绑定 `127.0.0.1:4173` 并启用飞书登录/代理
+- 局域网分享模式：执行 `npm run deploy:lan`，绑定 `0.0.0.0:4173`，禁用飞书登录，访客需在自己电脑运行本地包才能登录自己的飞书
+- 分发包：`npm run package:local` 生成 `.output/local-deploy/scope-shield-local-<timestamp>.zip` 和同名解压目录；`.output/local-deploy` 每次只保留最新一次产物；对方解压后双击 `start-local.cmd`；首次启动会自动准备飞书登录组件
+- 数据持久化：本地私有模式固定 `127.0.0.1:4173 --strict-port`，不再静默顺延端口；浏览器 IndexedDB 会镜像到用户应用数据目录（Windows `%APPDATA%\ScopeShield\scope-shield-backup.json`），空库启动时可自动恢复
 - 静态服务：`scripts/serve-dist.mjs`，零外部依赖，支持 SPA fallback / 端口占用自动顺延 / 路径穿越防护
 
 公开仓没绑定 Pages / Vercel。可选（看 Boss 是否要发布）：

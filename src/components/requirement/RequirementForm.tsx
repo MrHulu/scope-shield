@@ -8,6 +8,7 @@ import {
   clearLoginCache,
   prefetchLoginStatus,
 } from '../../services/feishuRequirement';
+import { startFeishuLogin, waitForFeishuLogin } from '../../services/feishuLoginRuntime';
 
 interface RequirementFormProps {
   projectId: string;
@@ -26,6 +27,7 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
   const [analyzing, setAnalyzing] = useState(false);
   const [sourceHint, setSourceHint] = useState<string | null>(null);
   const [needsLogin, setNeedsLogin] = useState(false);
+  const [feishuRuntimeEnabled, setFeishuRuntimeEnabled] = useState(true);
   const [loggingIn, setLoggingIn] = useState(false);
   const [errors, setErrors] = useState<Record<string, string>>({});
   const analyzeSeqRef = useRef(0);
@@ -40,6 +42,17 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
   // UI does NOT eagerly surface the login state — we just warm the cache.
   useEffect(() => {
     void prefetchLoginStatus();
+    fetch('/__feishu/status')
+      .then(async (resp) => {
+        const json = await resp.json().catch(() => null);
+        if (json && json.enabled === false) {
+          setFeishuRuntimeEnabled(false);
+        }
+      })
+      .catch(() => {
+        // Older dev servers may not expose status; keep login UI available.
+        setFeishuRuntimeEnabled(true);
+      });
   }, []);
 
   const handleAnalyzeUrl = async () => {
@@ -58,6 +71,13 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
     });
 
     try {
+      if (!feishuRuntimeEnabled) {
+        const parsedSource = buildFeishuRequirementSource(trimmedUrl);
+        setSource(parsedSource);
+        setNeedsLogin(false);
+        setSourceHint('当前是局域网共享模式。飞书登录不会在主机上代替你执行；请在自己电脑运行本地包后登录。');
+        return;
+      }
       const draft = await analyzeFeishuRequirementUrl(trimmedUrl);
       if (seq !== analyzeSeqRef.current || sourceUrlRef.current.trim() !== trimmedUrl) return;
       setSource(draft.source);
@@ -98,12 +118,9 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
       return next;
     });
     try {
-      const resp = await fetch('/__feishu/login', { method: 'POST' });
-      const json = await resp.json().catch(() => ({ ok: resp.ok }));
-      if (!resp.ok || !json.ok) {
-        throw new Error(json.error || `HTTP ${resp.status}`);
-      }
-      setLoggingIn(false);
+      setSourceHint('登录窗口已打开，请在弹出窗口完成飞书登录');
+      await startFeishuLogin();
+      await waitForFeishuLogin();
       setNeedsLogin(false);
       // Cookies just changed; the cached probe result from before login is
       // now stale. Drop it so the next analyze (immediately below) re-probes.
@@ -111,11 +128,12 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
       // 登录成功 → 自动重新解析当前 URL，自动回填字段
       void handleAnalyzeUrl();
     } catch (err) {
-      setLoggingIn(false);
       setErrors((prev) => ({
         ...prev,
         sourceUrl: `登录失败：${(err as Error).message}`,
       }));
+    } finally {
+      setLoggingIn(false);
     }
   };
 
@@ -204,7 +222,7 @@ export function RequirementForm({ projectId, requirements, onSave, onCancel }: R
               <p className={`text-xs ${errors.sourceUrl ? 'text-red-500' : needsLogin ? 'text-amber-700' : 'text-blue-600'}`}>
                 {errors.sourceUrl ?? sourceHint}
               </p>
-              {needsLogin && !errors.sourceUrl && (
+              {needsLogin && !errors.sourceUrl && feishuRuntimeEnabled && (
                 <button
                   type="button"
                   onClick={handleFeishuLogin}

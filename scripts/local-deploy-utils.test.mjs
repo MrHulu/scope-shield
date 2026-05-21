@@ -6,6 +6,7 @@ import {
   getDisplayUrls,
   getLanAddresses,
   isPathInside,
+  isLoopbackHost,
   localDeployStamp,
   parseLocalDeployArgs,
 } from './local-deploy-utils.mjs'
@@ -21,6 +22,11 @@ test('parseLocalDeployArgs reads host, port, root and booleans', () => {
       '--no-open',
       '--skip-build',
       '--no-zip',
+      '--feishu',
+      '--strict-port',
+      '--shutdown-on-idle',
+      '--idle-timeout-ms=1234',
+      '--auto-feishu-login',
     ]),
     {
       host: '127.0.0.1',
@@ -29,6 +35,11 @@ test('parseLocalDeployArgs reads host, port, root and booleans', () => {
       open: false,
       skipBuild: true,
       noZip: true,
+      feishu: true,
+      strictPort: true,
+      shutdownOnIdle: true,
+      idleTimeoutMs: 1234,
+      autoFeishuLogin: true,
       help: false,
     },
   )
@@ -37,6 +48,11 @@ test('parseLocalDeployArgs reads host, port, root and booleans', () => {
 test('parseLocalDeployArgs rejects invalid ports', () => {
   assert.throws(() => parseLocalDeployArgs(['--port', '0']), /Invalid port/)
   assert.throws(() => parseLocalDeployArgs(['--port', 'abc']), /Invalid port/)
+  assert.throws(() => parseLocalDeployArgs(['--idle-timeout-ms', '0']), /Invalid --idle-timeout-ms/)
+})
+
+test('parseLocalDeployArgs can disable a default Feishu mode', () => {
+  assert.equal(parseLocalDeployArgs(['--no-feishu'], { feishu: true }).feishu, false)
 })
 
 test('getLanAddresses returns unique non-internal IPv4 addresses', () => {
@@ -73,6 +89,13 @@ test('getContentType maps common static assets', () => {
   assert.equal(getContentType('assets/app.js'), 'text/javascript; charset=utf-8')
   assert.equal(getContentType('assets/app.woff2'), 'font/woff2')
   assert.equal(getContentType('assets/app.unknown'), 'application/octet-stream')
+})
+
+test('isLoopbackHost distinguishes private local from LAN bind hosts', () => {
+  assert.equal(isLoopbackHost('127.0.0.1'), true)
+  assert.equal(isLoopbackHost('localhost'), true)
+  assert.equal(isLoopbackHost('0.0.0.0'), false)
+  assert.equal(isLoopbackHost('192.168.0.142'), false)
 })
 
 test('localDeployStamp is stable and filesystem-safe', () => {

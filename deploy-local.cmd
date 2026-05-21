@@ -30,5 +30,5 @@ if not exist node_modules (
   )
 )
 
-npm run deploy:local -- --host 0.0.0.0 --port 4173
-pause
+npm run deploy:local -- --host 127.0.0.1 --port 4173 --feishu --strict-port --shutdown-on-idle --auto-feishu-login
+if errorlevel 1 pause

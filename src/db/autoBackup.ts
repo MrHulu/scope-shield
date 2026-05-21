@@ -1,5 +1,6 @@
 import { onDataChange } from './changeNotifier';
 import { exportAllData } from './exportImport';
+import { saveLocalFileBackup } from './localFileBackup';
 import type { ExportData } from '../types';
 
 const KEY_LATEST = 'scope-shield-backup-latest';
@@ -77,9 +78,16 @@ async function doBackup(): Promise<void> {
       localStorage.setItem(KEY_PREV, prev);
     }
     localStorage.setItem(KEY_LATEST, json);
+    if (backup.data.projects.some((project) => !project.isDemo)) {
+      void saveLocalFileBackup(backup);
+    }
   } catch {
     // localStorage full or other error — silent fail, best effort
   }
+}
+
+export async function writeAutoBackupNow(): Promise<void> {
+  await doBackup();
 }
 
 export function startAutoBackup(): () => void {

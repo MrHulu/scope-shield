@@ -97,12 +97,20 @@ deploy-local.cmd
 npm run deploy:local
 ```
 
-它会自动执行生产构建，然后用内置零依赖静态服务器启动 `dist/`，默认绑定 `0.0.0.0:4173`。终端会打印：
+它会自动执行生产构建，然后用内置零依赖静态服务器启动 `dist/`，默认绑定 `127.0.0.1:4173`。这是**本机私有模式**：数据和飞书凭证都只在这台电脑上。关闭浏览器后，本机私有服务会在短暂空闲超时后自动退出；也可以在终端里按 `Ctrl+C` 手动停止。
+
+需要把页面分享给同一局域网设备时，使用 LAN 分享模式：
+
+```bash
+npm run deploy:lan
+```
+
+LAN 模式绑定 `0.0.0.0:4173`，终端会打印：
 
 - `Local: http://localhost:4173/`
 - `LAN: http://你的局域网 IP:4173/`
 
-同一 Wi-Fi / 局域网内的设备打开 `LAN` 地址即可访问。Windows 防火墙如弹出 Node.js 放行提示，允许专用网络即可。
+同一 Wi-Fi / 局域网内的设备打开 `LAN` 地址即可访问。Windows 防火墙如弹出 Node.js 放行提示，允许专用网络即可。LAN 分享模式**禁用飞书登录和主机本地备份接口**；访客如需登录自己的飞书，请下载本地包并在自己的电脑运行。
 
 可选参数：
 
@@ -110,6 +118,7 @@ npm run deploy:local
 npm run deploy:local -- --port 8080
 npm run deploy:local -- --host 127.0.0.1 --no-open
 npm run serve:local   # 只服务已有 dist，不重新 build
+npm run serve:lan     # 只服务已有 dist，并开放局域网访问
 ```
 
 ### 打包给别人一键部署
@@ -124,7 +133,13 @@ npm run package:local
 .output/local-deploy/scope-shield-local-<timestamp>.zip
 ```
 
-对方解压后双击 `start-local.cmd` 即可本地启动，包内只包含 `dist/`、静态服务器和启动脚本，不包含源码与依赖。接收方机器需要安装 Node.js 20+。
+`.output/local-deploy` 每次只保留最新一次生成的目录和 zip，避免旧验收包堆积。
+
+对方解压后双击 `start-local.cmd` 即可在自己电脑启动本机私有模式。启动不再执行 `npm install`，会先打开主应用；如果这台电脑还没有飞书凭证，会自动弹出飞书登录窗口。包内自带飞书登录脚本依赖，登录窗口会优先使用 Playwright Chromium，缺失时使用对方电脑上的 Chrome 或 Microsoft Edge。接收方机器需要安装 Node.js 20+。
+
+包内也会生成 `start-lan-share.cmd`，用于显式开放局域网分享；这个模式不会启用飞书登录，并会一直运行到你按 `Ctrl+C` 或关闭终端窗口。
+
+本地私有模式固定使用 `127.0.0.1:4173`，不会静默顺延端口；如果端口被占用会直接提示。项目数据除浏览器 IndexedDB 外，还会镜像到当前用户的应用数据目录，避免因为浏览器 origin 变化看到空库。若对方电脑没有 Chrome / Edge 且缺少 Playwright Chromium，可在包目录手动运行 `node scripts/ensure-feishu-runtime.mjs` 联网补装浏览器内核；这一步不会影响主应用启动。
 
 ---
 

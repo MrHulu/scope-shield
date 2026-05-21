@@ -17,11 +17,13 @@ import { NavigationKeys } from './components/shared/NavigationKeys';
 import { startSystemThemeListener } from './stores/themeStore';
 import { seedDemoData } from './db/seedDemo';
 import { cleanupOldNames } from './db/personNameRepo';
-import { getLatestBackup, startAutoBackup } from './db/autoBackup';
+import { getLatestBackup, startAutoBackup, writeAutoBackupNow } from './db/autoBackup';
 import { importData } from './db/exportImport';
+import { loadLocalFileBackup } from './db/localFileBackup';
 import type { AutoBackup } from './db/autoBackup';
 import { decodeShareLink, readShareTokenFromHash, type SharedSnapshot } from './services/shareLink';
 import { SharedViewPage } from './pages/SharedViewPage';
+import { startRuntimeHeartbeat } from './services/runtimeHeartbeat';
 
 export default function App() {
   const loadProjects = useProjectStore((s) => s.loadProjects);
@@ -47,6 +49,14 @@ export default function App() {
       if (cancelled) return;
 
       if (loaded.length === 0) {
+        const localFileBackup = await loadLocalFileBackup();
+        if (localFileBackup && localFileBackup.data.projects.length > 0) {
+          await importData(localFileBackup.data);
+          await loadProjects();
+          setReady(true);
+          return;
+        }
+
         const backup = getLatestBackup();
         if (backup && backup.data.projects.length > 0) {
           setRecoveryBackup(backup);
@@ -56,6 +66,9 @@ export default function App() {
         await loadProjects();
         await loadRequirements('demo-001');
         await loadChanges('demo-001');
+        void writeAutoBackupNow();
+      } else {
+        void writeAutoBackupNow();
       }
       setReady(true);
     })();
@@ -66,7 +79,9 @@ export default function App() {
     cleanupOldNames();
     const cleanup = startAutoBackup();
     const stopThemeListener = startSystemThemeListener();
+    const stopRuntimeHeartbeat = startRuntimeHeartbeat();
     return () => {
+      stopRuntimeHeartbeat();
       cleanup();
       stopThemeListener();
     };
